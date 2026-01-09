@@ -106,9 +106,11 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         width: '100%',
+        backgroundColor: 'transparent',
     },
     listContent: {
-        paddingBottom: 100,
+        paddingBottom: 20,
+        paddingTop: 10,
     },
     imageContainer: {
         width: IMAGE_SIZE,

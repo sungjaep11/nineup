@@ -9,22 +9,14 @@ import {
 } from 'react-native';
 import { Player, PlayerPosition, POSITION_NAMES, getPlayersByPosition } from '../types/player';
 
-export default function PlayerSelector() {
+interface PlayerSelectorProps {
+  selectedPlayers: Partial<Record<PlayerPosition, Player>>;
+  onPlayerSelect: (position: PlayerPosition, player: Player) => void;
+}
+
+export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: PlayerSelectorProps) {
   // 어떤 포지션이 펼쳐져 있는지 저장
   const [expandedPosition, setExpandedPosition] = useState<PlayerPosition | null>(null);
-  
-  // 각 포지션별로 선택된 선수 저장 (포지션: 선수)
-  const [selectedPlayers, setSelectedPlayers] = useState<Record<PlayerPosition, Player | null>>({
-    pitcher: null,
-    catcher: null,
-    first: null,
-    second: null,
-    shortstop: null,
-    third: null,
-    left: null,
-    center: null,
-    right: null,
-  });
 
   // 모든 포지션 목록
   const positions: PlayerPosition[] = [
@@ -52,11 +44,8 @@ export default function PlayerSelector() {
 
   // 선수 선택
   const handlePlayerSelect = (position: PlayerPosition, player: Player) => {
-    // 해당 포지션의 선수 저장
-    setSelectedPlayers({
-      ...selectedPlayers,
-      [position]: player,
-    });
+    // 부모 컴포넌트에 선택 정보 전달
+    onPlayerSelect(position, player);
     
     // 선택 후 자동으로 리스트 닫기
     setExpandedPosition(null);

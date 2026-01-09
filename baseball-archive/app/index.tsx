@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import NavBar from '../components/NavBar';
 import PlayerSelector from '../components/player-selector';
+import Album from '../components/album';
+import { Player, PlayerPosition } from '../types/player';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,10 +26,24 @@ const GRASS_TEXTURE_URL = 'https://www.transparenttextures.com/patterns/grass.pn
 // Height of the sliding panel
 const PANEL_HEIGHT = height * 0.85;
 
+// Position mapping: player.ts names -> index.tsx style names
+const positionMapping: Record<PlayerPosition, string> = {
+    pitcher: 'pitcher',
+    catcher: 'catcher',
+    first: 'firstBaseman',
+    second: 'secondBaseman',
+    shortstop: 'shortstop',
+    third: 'thirdBaseman',
+    left: 'leftFielder',
+    center: 'centerFielder',
+    right: 'rightFielder',
+};
+
 export default function BaseballField() {
     const slideAnim = useRef(new Animated.Value(PANEL_HEIGHT)).current;
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
+    const [selectedPlayers, setSelectedPlayers] = useState<Partial<Record<PlayerPosition, Player>>>({});
 
     // --- 2. PanResponder Logic (Drag to Dismiss) ---
     const panResponder = useRef(
@@ -92,12 +108,29 @@ export default function BaseballField() {
         }).start();
     };
 
+    const handlePlayerSelect = (position: PlayerPosition, player: Player) => {
+        setSelectedPlayers(prev => ({
+            ...prev,
+            [position]: player,
+        }));
+    };
+
+    // Check if position is selected and return appropriate image
+    const getPlayerIcon = (position: PlayerPosition) => {
+        return selectedPlayers[position] 
+            ? require('../assets/images/player.png')
+            : require('../assets/images/player-black.png');
+    };
+
     const renderPanelContent = () => {
         switch (activeTab) {
             case 'album':
-                return <Text style={styles.panelText}>📸 앨범 (Gallery Placeholder)</Text>;
+                return <Album />;
             case 'roster':
-                return <PlayerSelector />;
+                return <PlayerSelector 
+                    selectedPlayers={selectedPlayers}
+                    onPlayerSelect={handlePlayerSelect}
+                />;
             case 'stats':
                 return <Text style={styles.panelText}>📊 통계 (Stats Placeholder)</Text>;
             default:
@@ -146,23 +179,86 @@ export default function BaseballField() {
                         {/* Player Icons Layer */}
                         <View style={styles.playersLayer}>
                             {/* 투수 (Pitcher) */}
-                            <Image source={require('../assets/images/player.png')} style={[styles.playerIcon, styles.pitcher]} />
+                            <View style={[styles.playerContainer, styles.pitcher]}>
+                                {selectedPlayers['pitcher'] && (
+                                    <View style={styles.nameTag}>
+                                        <Text style={styles.nameText}>{selectedPlayers['pitcher'].name}</Text>
+                                    </View>
+                                )}
+                                <Image source={getPlayerIcon('pitcher')} style={styles.playerIcon} />
+                            </View>
                             {/* 포수 (Catcher) */}
-                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.catcher]} />
+                            <View style={[styles.playerContainer, styles.catcher]}>
+                                {selectedPlayers['catcher'] && (
+                                    <View style={styles.nameTag}>
+                                        <Text style={styles.nameText}>{selectedPlayers['catcher'].name}</Text>
+                                    </View>
+                                )}
+                                <Image source={getPlayerIcon('catcher')} style={styles.playerIcon} />
+                            </View>
                             {/* 1루수 (First Baseman) */}
-                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.firstBaseman]} />
+                            <View style={[styles.playerContainer, styles.firstBaseman]}>
+                                {selectedPlayers['first'] && (
+                                    <View style={styles.nameTag}>
+                                        <Text style={styles.nameText}>{selectedPlayers['first'].name}</Text>
+                                    </View>
+                                )}
+                                <Image source={getPlayerIcon('first')} style={styles.playerIcon} />
+                            </View>
                             {/* 2루수 (Second Baseman) */}
-                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.secondBaseman]} />
+                            <View style={[styles.playerContainer, styles.secondBaseman]}>
+                                {selectedPlayers['second'] && (
+                                    <View style={styles.nameTag}>
+                                        <Text style={styles.nameText}>{selectedPlayers['second'].name}</Text>
+                                    </View>
+                                )}
+                                <Image source={getPlayerIcon('second')} style={styles.playerIcon} />
+                            </View>
                             {/* 유격수 (Shortstop) */}
-                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.shortstop]} />
+                            <View style={[styles.playerContainer, styles.shortstop]}>
+                                {selectedPlayers['shortstop'] && (
+                                    <View style={styles.nameTag}>
+                                        <Text style={styles.nameText}>{selectedPlayers['shortstop'].name}</Text>
+                                    </View>
+                                )}
+                                <Image source={getPlayerIcon('shortstop')} style={styles.playerIcon} />
+                            </View>
                             {/* 3루수 (Third Baseman) */}
-                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.thirdBaseman]} />
+                            <View style={[styles.playerContainer, styles.thirdBaseman]}>
+                                {selectedPlayers['third'] && (
+                                    <View style={styles.nameTag}>
+                                        <Text style={styles.nameText}>{selectedPlayers['third'].name}</Text>
+                                    </View>
+                                )}
+                                <Image source={getPlayerIcon('third')} style={styles.playerIcon} />
+                            </View>
                             {/* 좌익수 (Left Fielder) */}
-                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.leftFielder]} />
+                            <View style={[styles.playerContainer, styles.leftFielder]}>
+                                {selectedPlayers['left'] && (
+                                    <View style={styles.nameTag}>
+                                        <Text style={styles.nameText}>{selectedPlayers['left'].name}</Text>
+                                    </View>
+                                )}
+                                <Image source={getPlayerIcon('left')} style={styles.playerIcon} />
+                            </View>
                             {/* 중견수 (Center Fielder) */}
-                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.centerFielder]} />
+                            <View style={[styles.playerContainer, styles.centerFielder]}>
+                                {selectedPlayers['center'] && (
+                                    <View style={styles.nameTag}>
+                                        <Text style={styles.nameText}>{selectedPlayers['center'].name}</Text>
+                                    </View>
+                                )}
+                                <Image source={getPlayerIcon('center')} style={styles.playerIcon} />
+                            </View>
                             {/* 우익수 (Right Fielder) */}
-                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.rightFielder]} />
+                            <View style={[styles.playerContainer, styles.rightFielder]}>
+                                {selectedPlayers['right'] && (
+                                    <View style={styles.nameTag}>
+                                        <Text style={styles.nameText}>{selectedPlayers['right'].name}</Text>
+                                    </View>
+                                )}
+                                <Image source={getPlayerIcon('right')} style={styles.playerIcon} />
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -280,12 +376,37 @@ const styles = StyleSheet.create({
         position: 'absolute',
         zIndex: 20,
     },
+    playerContainer: {
+        position: 'absolute',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     playerIcon: {
         width: 100,
         height: 100,
-        position: 'absolute',
         resizeMode: 'contain',
-        zIndex: 20,
+    },
+    nameTag: {
+        position: 'absolute',
+        top: 70,
+        backgroundColor: '#ffffff',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: '#5d4037',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
+        elevation: 5,
+        zIndex: 25,
+    },
+    nameText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#5d4037',
+        textAlign: 'center',
     },
     pitcher: {
         top: '50%',
