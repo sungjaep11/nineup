@@ -8,6 +8,7 @@ import {
     ImageBackground,
     Animated,
     Text,
+    Image,
     PanResponder // 1. Import PanResponder
 } from 'react-native';
 import NavBar from '../components/NavBar';
@@ -141,6 +142,28 @@ export default function BaseballField() {
                             <View style={[styles.base, styles.thirdBase]} />
                             <View style={styles.pitchersMound}><View style={styles.pitchersRubber} /></View>
                         </View>
+
+                        {/* Player Icons Layer */}
+                        <View style={styles.playersLayer}>
+                            {/* 투수 (Pitcher) */}
+                            <Image source={require('../assets/images/player.png')} style={[styles.playerIcon, styles.pitcher]} />
+                            {/* 포수 (Catcher) */}
+                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.catcher]} />
+                            {/* 1루수 (First Baseman) */}
+                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.firstBaseman]} />
+                            {/* 2루수 (Second Baseman) */}
+                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.secondBaseman]} />
+                            {/* 유격수 (Shortstop) */}
+                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.shortstop]} />
+                            {/* 3루수 (Third Baseman) */}
+                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.thirdBaseman]} />
+                            {/* 좌익수 (Left Fielder) */}
+                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.leftFielder]} />
+                            {/* 중견수 (Center Fielder) */}
+                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.centerFielder]} />
+                            {/* 우익수 (Right Fielder) */}
+                            <Image source={require('../assets/images/player-black.png')} style={[styles.playerIcon, styles.rightFielder]} />
+                        </View>
                     </View>
                 </View>
             </View>
@@ -249,4 +272,65 @@ const styles = StyleSheet.create({
     battersBoxRight: { position: 'absolute', bottom: -15, left: '50%', marginLeft: 22, width: 26, height: 48, borderWidth: 2, borderColor: 'rgba(255,255,255,0.8)' },
     pitchersMound: { width: DIAMOND_SIZE * 0.18, height: DIAMOND_SIZE * 0.18, backgroundColor: '#b38a5d', borderRadius: 50, alignSelf: 'center', top: '50%', marginTop: -(DIAMOND_SIZE * 0.09), alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)', zIndex: 5 },
     pitchersRubber: { width: 14, height: 4, backgroundColor: '#ffffff', borderRadius: 1 },
+    
+    // Player Icons
+    playersLayer: { 
+        width: '100%', 
+        height: '100%', 
+        position: 'absolute',
+        zIndex: 20,
+    },
+    playerIcon: {
+        width: 100,
+        height: 100,
+        position: 'absolute',
+        resizeMode: 'contain',
+        zIndex: 20,
+    },
+    pitcher: {
+        top: '50%',
+        left: '50%',
+        marginTop: -70,
+        marginLeft: -50,
+    },
+    catcher: {
+        bottom: -65,
+        left: '50%',
+        marginLeft: -50,
+    },
+    firstBaseman: {
+        right: '-25%',
+        top: '50%',
+        marginTop: -50,
+    },
+    secondBaseman: {
+        right: '5%',
+        top: '-5%',
+        marginTop: 0,
+    },
+    shortstop: {
+        left: '5%',
+        top: '-5%',
+        marginTop: 0,
+    },
+    thirdBaseman: {
+        left: '-25%',
+        top: '50%',
+        marginTop: -50,
+    },
+    leftFielder: {
+        left: '0%',
+        top: '-65%',
+        marginLeft: -20,
+    },
+    centerFielder: {
+        left: '50%',
+        top: '-100%',
+        marginLeft:-50,
+    },
+    rightFielder: {
+        right: '0%',
+        top: '-65%',
+        marginRight: -20,
+    },
 });
