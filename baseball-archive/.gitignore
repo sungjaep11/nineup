@@ -1,15 +1,23 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ============================================
+# React Native + Expo
+# ============================================
 
 # dependencies
 node_modules/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+package-lock.json
+yarn.lock
 
 # Expo
 .expo/
+.expo-shared/
 dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# Native builds
 .kotlin/
 *.orig.*
 *.jks
@@ -17,27 +25,216 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.cer
 
-# Metro
+# Generated native folders (Expo generates these)
+/ios
+/android
+
+# Metro bundler
 .metro-health-check*
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+# TypeScript
+*.tsbuildinfo
+
+# ============================================
+# Python + Django
+# ============================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# Django stuff
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+backend/venv/
+backend/env/
+
+# Python package files
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Django migrations (선택사항 - 보통은 추적함)
+# */migrations/*
+# !*/migrations/__init__.py
+
+# ============================================
+# IDE / Editors
+# ============================================
+
+# Visual Studio Code
+.vscode/
+.history/
+*.code-workspace
+
+# JetBrains (WebStorm, PyCharm, IntelliJ IDEA)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ============================================
+# Operating System
+# ============================================
 
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ============================================
+# Environment Variables
+# ============================================
+
+# Local environment files
+.env
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ============================================
+# Logs
+# ============================================
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# ============================================
+# Miscellaneous
+# ============================================
+
+# Certificates
 *.pem
 
-# local env files
-.env*.local
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.cache
 
-# typescript
-*.tsbuildinfo
+# Backup files
+*~
+*.orig
+*.rej
 
-app-example
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
 
-# generated native folders
-/ios
-/android
+# Example/template folders (optional)
+app-example/
+
+# ============================================
+# Project Specific
+# ============================================
+
+# Terminal output files (Cursor specific)
+.cursor/
+
+# Test files (optional - uncomment if needed)
+# test-*.tsx
+# *.test.ts
+# *.spec.ts

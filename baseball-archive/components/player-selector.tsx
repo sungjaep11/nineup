@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
-import { Player, PlayerPosition, POSITION_NAMES, getPlayersByPosition } from '../types/player';
+import { Player, PlayerPosition, POSITION_NAMES } from '../types/player';
+import { getAllPlayersByPosition } from '../services/playerService';
 
 interface PlayerSelectorProps {
   selectedPlayers: Partial<Record<PlayerPosition, Player>>;
@@ -17,6 +19,15 @@ interface PlayerSelectorProps {
 export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: PlayerSelectorProps) {
   // 어떤 포지션이 펼쳐져 있는지 저장
   const [expandedPosition, setExpandedPosition] = useState<PlayerPosition | null>(null);
+  
+  // API에서 가져온 선수 데이터
+  const [playersData, setPlayersData] = useState<Record<PlayerPosition, Player[]> | null>(null);
+  
+  // 로딩 상태
+  const [loading, setLoading] = useState<boolean>(true);
+  
+  // 에러 상태
+  const [error, setError] = useState<string | null>(null);
 
   // 모든 포지션 목록
   const positions: PlayerPosition[] = [
@@ -30,6 +41,27 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
     'center',
     'right',
   ];
+
+  // 컴포넌트 마운트 시 API에서 선수 데이터 가져오기
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // API에서 모든 포지션별 선수 데이터 가져오기
+        const data = await getAllPlayersByPosition();
+        setPlayersData(data);
+      } catch (err) {
+        console.error('Error loading players:', err);
+        setError('선수 데이터를 불러오는데 실패했습니다. 서버가 실행 중인지 확인해주세요.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlayers();
+  }, []);
 
   // 포지션 펼치기/접기
   const togglePosition = (position: PlayerPosition) => {
@@ -51,6 +83,48 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
     setExpandedPosition(null);
   };
 
+  // 로딩 중일 때
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#ffcc80" />
+        <Text style={styles.loadingText}>선수 데이터를 불러오는 중...</Text>
+      </View>
+    );
+  }
+
+  // 에러 발생 시
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.errorText}>⚠️ {error}</Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => {
+            setLoading(true);
+            setError(null);
+            // 재시도
+            getAllPlayersByPosition()
+              .then(data => setPlayersData(data))
+              .catch(err => setError('선수 데이터를 불러오는데 실패했습니다.'))
+              .finally(() => setLoading(false));
+          }}
+        >
+          <Text style={styles.retryButtonText}>다시 시도</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // 데이터가 없을 때
+  if (!playersData) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.errorText}>선수 데이터가 없습니다.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -68,7 +142,7 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
         scrollEnabled={true}
         alwaysBounceVertical={true}>
         {positions.map((position) => {
-          const players = getPlayersByPosition(position);
+          const players = playersData[position] || [];  // API에서 가져온 데이터 사용
           const expanded = expandedPosition === position;
           const selectedPlayer = selectedPlayers[position];
 
@@ -98,7 +172,7 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
                         {selectedPlayer.name}
                       </Text>
                       <Text style={styles.selectedPlayerDetail}>
-                        #{selectedPlayer.backNumber}
+                        #{selectedPlayer.back_number}
                       </Text>
                     </>
                   ) : (
@@ -132,7 +206,7 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
                       <View style={styles.playerInfo}>
                         <View style={styles.playerHeader}>
                           <Text style={styles.playerName}>{player.name}</Text>
-                          <Text style={styles.backNumber}>#{player.backNumber}</Text>
+                          <Text style={styles.backNumber}>#{player.back_number}</Text>
                         </View>
                         <Text style={styles.teamName}>{player.team}</Text>
                       </View>
@@ -161,6 +235,33 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     display: 'none',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#ffffff',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff6b6b',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: '#ffcc80',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#5d4037',
   },
   scrollView: {
     flex: 1,

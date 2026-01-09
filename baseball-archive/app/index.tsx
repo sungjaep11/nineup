@@ -182,7 +182,7 @@ export default function BaseballField() {
                             <View style={[styles.playerContainer, styles.pitcher]}>
                                 {selectedPlayers['pitcher'] && (
                                     <View style={styles.nameTag}>
-                                        <Text style={styles.nameText}>{selectedPlayers['pitcher'].name}</Text>
+                                        <Text style={styles.nameText}>{selectedPlayers['pitcher'].name} #{selectedPlayers['pitcher'].back_number}</Text>
                                     </View>
                                 )}
                                 <Image source={getPlayerIcon('pitcher')} style={styles.playerIcon} />
