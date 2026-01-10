@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Player, PlayerPosition, POSITION_NAMES } from '../types/player';
-import { getAllPlayersByPosition } from '../services/playerService';
+import { getMysqlPlayersByPosition } from '../services/playerService'; // MySQL API 사용
 
 interface PlayerSelectorProps {
   selectedPlayers: Partial<Record<PlayerPosition, Player>>;
@@ -42,19 +42,21 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
     'right',
   ];
 
-  // 컴포넌트 마운트 시 API에서 선수 데이터 가져오기
+  // 컴포넌트 마운트 시 MySQL에서 선수 데이터 가져오기
   useEffect(() => {
     const fetchPlayers = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        // API에서 모든 포지션별 선수 데이터 가져오기
-        const data = await getAllPlayersByPosition();
+        console.log('📊 MySQL에서 선수 데이터 가져오는 중...');
+        // MySQL API에서 모든 포지션별 선수 데이터 가져오기
+        const data = await getMysqlPlayersByPosition();
+        console.log('✅ 선수 데이터 로드 완료!', Object.keys(data));
         setPlayersData(data);
       } catch (err) {
-        console.error('Error loading players:', err);
-        setError('선수 데이터를 불러오는데 실패했습니다. 서버가 실행 중인지 확인해주세요.');
+        console.error('❌ Error loading MySQL players:', err);
+        setError('MySQL 선수 데이터를 불러오는데 실패했습니다. Django 서버와 MySQL 연결을 확인해주세요.');
       } finally {
         setLoading(false);
       }

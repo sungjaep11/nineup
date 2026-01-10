@@ -72,6 +72,32 @@ export const getAllPlayersByPosition = async (): Promise<Record<PlayerPosition, 
 };
 
 /**
+ * MySQL에서 모든 포지션별 선수 목록 가져오기 (batterlist + pitcherlist)
+ * 실제 AWS RDS MySQL 데이터 사용
+ */
+export const getMysqlPlayersByPosition = async (): Promise<Record<PlayerPosition, Player[]>> => {
+  try {
+    console.log('🔵 MySQL API 호출:', API_ENDPOINTS.mysqlPlayers);
+    const response = await fetch(API_ENDPOINTS.mysqlPlayers, {
+      method: 'GET',
+      headers: API_HEADERS,
+    });
+
+    console.log('🔵 MySQL API 응답 상태:', response.status);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ MySQL API 성공! 포지션 개수:', Object.keys(data).length);
+    return data;
+  } catch (error) {
+    console.error('❌ Error fetching MySQL players by position:', error);
+    throw error;
+  }
+};
+
+/**
  * 특정 선수 상세 정보 가져오기
  */
 export const getPlayerDetail = async (id: number): Promise<Player> => {

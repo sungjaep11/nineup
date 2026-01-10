@@ -25,11 +25,17 @@ const getApiUrl = () => {
 };
 
 export const API_URL = getApiUrl();
+
+// API 엔드포인트
 export const API_ENDPOINTS = {
+  // 기존 SQLite 기반 API (호환성 유지)
   players: `${API_URL}/api/players/`,
   playersByPosition: (position: string) => `${API_URL}/api/players/by_position/?position=${position}`,
   allPlayersByPosition: `${API_URL}/api/players/all_by_position/`,
   playerDetail: (id: number) => `${API_URL}/api/players/${id}/`,
+  
+  // MySQL 테이블 직접 쿼리 API (batterlist, pitcherlist)
+  mysqlPlayers: `${API_URL}/api/mysql-players/`,
 };
 
 // API 호출 시 공통으로 사용할 헤더

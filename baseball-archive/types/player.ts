@@ -15,11 +15,20 @@ export interface Player {
   team: string;
   position: PlayerPosition;
   back_number: number;  // 백엔드 API 형식에 맞춤
-  batting_average?: number;  // 타율 (선택적)
-  home_runs?: number;  // 홈런 (선택적)
-  rbis?: number;  // 타점 (선택적)
-  era?: number;  // 평균자책점 (선택적)
-  wins?: number;  // 승 (선택적)
+  
+  // 타자 통계 (선택적)
+  batting_average?: number;  // 타율
+  home_runs?: number;  // 홈런
+  rbis?: number;  // 타점
+  stolen_bases?: number;  // 도루
+  
+  // 투수 통계 (선택적)
+  era?: number;  // 평균자책점
+  wins?: number;  // 승
+  losses?: number;  // 패
+  holds?: number;  // 홀드
+  saves?: number;  // 세이브
+  strikeouts?: number;  // 탈삼진
 }
 
 // 포지션 이름 표시용
