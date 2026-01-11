@@ -13,7 +13,7 @@ import { getMysqlPlayersByPosition } from '../services/playerService'; // MySQL 
 
 interface PlayerSelectorProps {
   selectedPlayers: Partial<Record<PlayerPosition, Player>>;
-  onPlayerSelect: (position: PlayerPosition, player: Player) => void;
+  onPlayerSelect: (position: PlayerPosition, player: Player | null) => void;
 }
 
 export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: PlayerSelectorProps) {
@@ -76,12 +76,19 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
     }
   };
 
-  // 선수 선택
+  // 선수 선택/해제 (토글)
   const handlePlayerSelect = (position: PlayerPosition, player: Player) => {
-    // 부모 컴포넌트에 선택 정보 전달
-    onPlayerSelect(position, player);
+    const currentSelectedPlayer = selectedPlayers[position];
     
-    // 선택 후 자동으로 리스트 닫기
+    // 이미 선택된 선수를 다시 클릭하면 선택 해제
+    if (currentSelectedPlayer && currentSelectedPlayer.id === player.id) {
+      onPlayerSelect(position, null);
+    } else {
+      // 새로운 선수 선택
+      onPlayerSelect(position, player);
+    }
+    
+    // 선택/해제 후 자동으로 리스트 닫기
     setExpandedPosition(null);
   };
 
@@ -186,9 +193,9 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
               {/* 선수 리스트 (펼쳐진 경우만 표시) */}
               {expanded && (
                 <View style={styles.playerListContainer}>
-                  {players.map((player) => (
+                  {players.map((player, index) => (
                     <TouchableOpacity
-                      key={player.id}
+                      key={`${position}-${player.id}-${index}`}
                       style={[
                         styles.playerCard,
                         selectedPlayer?.id === player.id && styles.selectedCard,

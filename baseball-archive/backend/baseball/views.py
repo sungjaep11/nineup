@@ -2,6 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from django.db import connection
+from django.conf import settings
+import os
 from .models import Player
 from .serializers import PlayerSerializer
 
@@ -63,6 +65,19 @@ POSITION_MAPPING = {
     'RF': 'right',       # 우익수
 }
 
+# 포지션별 ID 시작 번호 (중복 방지)
+POSITION_ID_OFFSET = {
+    'pitcher': 1000,
+    'catcher': 2000,
+    'first': 3000,
+    'second': 4000,
+    'third': 5000,
+    'shortstop': 6000,
+    'left': 7000,
+    'center': 8000,
+    'right': 9000,
+}
+
 # 한글 이름
 POSITION_NAMES = {
     'pitcher': '투수',
@@ -107,7 +122,7 @@ def get_players_by_position_mysql(request):
             # 프론트엔드 형식으로 변환
             result['pitcher'] = [
                 {
-                    'id': idx + 1,
+                    'id': POSITION_ID_OFFSET['pitcher'] + idx + 1,  # 1001, 1002, 1003...
                     'name': p['이름'],
                     'team': p['팀'],
                     'position': 'pitcher',
@@ -140,7 +155,7 @@ def get_players_by_position_mysql(request):
             
             result[frontend_position] = [
                 {
-                    'id': idx + 100 + hash(p['이름']) % 1000,  # 고유 ID 생성
+                    'id': POSITION_ID_OFFSET[frontend_position] + idx + 1,  # 포지션별 고유 ID
                     'name': p['이름'],
                     'team': p['팀'],
                     'position': frontend_position,
@@ -158,5 +173,56 @@ def get_players_by_position_mysql(request):
     except Exception as e:
         return Response(
             {'error': str(e), 'detail': 'MySQL 쿼리 중 오류가 발생했습니다.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def get_player_images(request):
+    """
+    선수 이미지 목록 가져오기
+    GET /api/player-images/
+    
+    Returns:
+    [
+      {
+        "id": "1",
+        "playerName": "네일",
+        "position": "pitcher",
+        "playerId": 1,
+        "imageUrl": "http://10.0.2.2:8000/media/네일_1.jpg",
+        "fileName": "네일_1.jpg"
+      },
+      ...
+    ]
+    """
+    try:
+        player_images_dir = settings.MEDIA_ROOT
+        
+        if not os.path.exists(player_images_dir):
+            return Response(
+                {'error': 'player_images 폴더가 없습니다.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 모든 이미지 파일 찾기
+        image_files = []
+        for filename in os.listdir(player_images_dir):
+            if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                # 파일명에서 선수 이름 추출 (예: "네일_1.jpg" -> "네일")
+                player_name = filename.split('_')[0]
+                
+                image_files.append({
+                    'id': filename,
+                    'playerName': player_name,
+                    'fileName': filename,
+                    'imageUrl': f"{request.build_absolute_uri(settings.MEDIA_URL)}{filename}"
+                })
+        
+        return Response(image_files, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

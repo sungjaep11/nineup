@@ -83,8 +83,18 @@ export default function BaseballField() {
         }).start();
     };
 
-    const handlePlayerSelect = (position: PlayerPosition, player: Player) => {
-        setSelectedPlayers(prev => ({ ...prev, [position]: player }));
+    const handlePlayerSelect = (position: PlayerPosition, player: Player | null) => {
+        if (player === null) {
+            // 선택 해제: 해당 포지션 제거
+            setSelectedPlayers(prev => {
+                const updated = { ...prev };
+                delete updated[position];
+                return updated;
+            });
+        } else {
+            // 선수 선택
+            setSelectedPlayers(prev => ({ ...prev, [position]: player }));
+        }
     };
 
     const getPlayerIcon = (position: PlayerPosition) => {
@@ -95,7 +105,7 @@ export default function BaseballField() {
 
     const renderPanelContent = () => {
         switch (activeTab) {
-            case 'album': return <Album />;
+            case 'album': return <Album selectedPlayers={selectedPlayers} />;
             case 'roster': return <PlayerSelector selectedPlayers={selectedPlayers} onPlayerSelect={handlePlayerSelect} />;
             case 'stats': return <Text style={styles.panelText}>📊 통계 (Stats Placeholder)</Text>;
             default: return null;
@@ -221,7 +231,7 @@ const styles = StyleSheet.create({
         position: 'absolute', bottom: 80, width: width, height: PANEL_HEIGHT,
         backgroundColor: '#F0F4F7', borderTopLeftRadius: 30, borderTopRightRadius: 30,
         zIndex: 10, shadowColor: "#000", shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.1, shadowRadius: 5, elevation: 15, paddingBottom: 100,
+        shadowOpacity: 0.1, shadowRadius: 5, elevation: 15, paddingBottom: 0,
     },
     panelHeader: { width: '100%', height: 50, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(100, 130, 150, 0.3)' },
     panelHandle: { width: 50, height: 6, borderRadius: 3, backgroundColor: '#7896AA' },
