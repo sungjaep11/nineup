@@ -10,11 +10,13 @@ import {
     StatusBar,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View
 } from 'react-native';
 import Album from '../components/album';
 import NavBar from '../components/NavBar';
 import PlayerSelector from '../components/player-selector';
+import Profile from '../components/profile';
 import Stats from '../components/stats';
 import { Player, PlayerPosition } from '../types/player';
 
@@ -33,6 +35,8 @@ export default function BaseballField() {
     const [selectedPlayers, setSelectedPlayers] = useState<Partial<Record<PlayerPosition, Player>>>({});
     const [startingPitcher, setStartingPitcher] = useState<Player | null>(null);
     const [reliefPitchers, setReliefPitchers] = useState<Player[]>([]);
+    const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
+    const [isProfileVisible, setIsProfileVisible] = useState(false);
 
     // --- PanResponder Logic ---
     const panResponder = useRef(
@@ -131,6 +135,18 @@ export default function BaseballField() {
             : require('../assets/images/player-black.png');
     };
 
+    const handlePlayerIconPress = (player: Player | null) => {
+        if (player) {
+            setProfilePlayer(player);
+            setIsProfileVisible(true);
+        }
+    };
+
+    const handleCloseProfile = () => {
+        setIsProfileVisible(false);
+        setProfilePlayer(null);
+    };
+
     const renderPanelContent = () => {
         switch (activeTab) {
             case 'album': return <Album selectedPlayers={selectedPlayers} />;
@@ -174,62 +190,114 @@ export default function BaseballField() {
                 {/* Player Icons Layer */}
                 <View style={styles.playersLayer}>
                     {/* 선발 투수 */}
-                    <View style={[styles.playerContainer, styles.pitcher]}>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.pitcher]}
+                        onPress={() => handlePlayerIconPress(startingPitcher)}
+                        activeOpacity={0.7}
+                    >
                         {startingPitcher && <View style={styles.nameTag}><Text style={styles.nameText}>{startingPitcher.name}</Text></View>}
                         <Image source={startingPitcher ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
-                    </View>
+                    </TouchableOpacity>
                     {/* 불펜 투수 1 */}
-                    <View style={[styles.playerContainer, styles.relief1]}>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.relief1]}
+                        onPress={() => handlePlayerIconPress(reliefPitchers[0] || null)}
+                        activeOpacity={0.7}
+                    >
                         {reliefPitchers[0] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[0].name}</Text></View>}
                         <Image source={reliefPitchers[0] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
-                    </View>
+                    </TouchableOpacity>
                     {/* 불펜 투수 2 */}
-                    <View style={[styles.playerContainer, styles.relief2]}>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.relief2]}
+                        onPress={() => handlePlayerIconPress(reliefPitchers[1] || null)}
+                        activeOpacity={0.7}
+                    >
                         {reliefPitchers[1] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[1].name}</Text></View>}
                         <Image source={reliefPitchers[1] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
-                    </View>
+                    </TouchableOpacity>
                     {/* 불펜 투수 3 */}
-                    <View style={[styles.playerContainer, styles.relief3]}>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.relief3]}
+                        onPress={() => handlePlayerIconPress(reliefPitchers[2] || null)}
+                        activeOpacity={0.7}
+                    >
                         {reliefPitchers[2] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[2].name}</Text></View>}
                         <Image source={reliefPitchers[2] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
-                    </View>
+                    </TouchableOpacity>
                     {/* 불펜 투수 4 */}
-                    <View style={[styles.playerContainer, styles.relief4]}>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.relief4]}
+                        onPress={() => handlePlayerIconPress(reliefPitchers[3] || null)}
+                        activeOpacity={0.7}
+                    >
                         {reliefPitchers[3] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[3].name}</Text></View>}
                         <Image source={reliefPitchers[3] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
-                    </View>
-                    <View style={[styles.playerContainer, styles.catcher]}>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.catcher]}
+                        onPress={() => handlePlayerIconPress(selectedPlayers['catcher'] || null)}
+                        activeOpacity={0.7}
+                    >
                         {selectedPlayers['catcher'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['catcher'].name}</Text></View>}
                         <Image source={getPlayerIcon('catcher')} style={styles.playerIcon} />
-                    </View>
-                    <View style={[styles.playerContainer, styles.firstBaseman]}>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.firstBaseman]}
+                        onPress={() => handlePlayerIconPress(selectedPlayers['first'] || null)}
+                        activeOpacity={0.7}
+                    >
                         {selectedPlayers['first'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['first'].name}</Text></View>}
                         <Image source={getPlayerIcon('first')} style={styles.playerIcon} />
-                    </View>
-                    <View style={[styles.playerContainer, styles.secondBaseman]}>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.secondBaseman]}
+                        onPress={() => handlePlayerIconPress(selectedPlayers['second'] || null)}
+                        activeOpacity={0.7}
+                    >
                         {selectedPlayers['second'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['second'].name}</Text></View>}
                         <Image source={getPlayerIcon('second')} style={styles.playerIcon} />
-                    </View>
-                    <View style={[styles.playerContainer, styles.shortstop]}>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.shortstop]}
+                        onPress={() => handlePlayerIconPress(selectedPlayers['shortstop'] || null)}
+                        activeOpacity={0.7}
+                    >
                         {selectedPlayers['shortstop'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['shortstop'].name}</Text></View>}
                         <Image source={getPlayerIcon('shortstop')} style={styles.playerIcon} />
-                    </View>
-                    <View style={[styles.playerContainer, styles.thirdBaseman]}>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.thirdBaseman]}
+                        onPress={() => handlePlayerIconPress(selectedPlayers['third'] || null)}
+                        activeOpacity={0.7}
+                    >
                         {selectedPlayers['third'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['third'].name}</Text></View>}
                         <Image source={getPlayerIcon('third')} style={styles.playerIcon} />
-                    </View>
-                    <View style={[styles.playerContainer, styles.leftFielder]}>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.leftFielder]}
+                        onPress={() => handlePlayerIconPress(selectedPlayers['left'] || null)}
+                        activeOpacity={0.7}
+                    >
                         {selectedPlayers['left'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['left'].name}</Text></View>}
                         <Image source={getPlayerIcon('left')} style={styles.playerIcon} />
-                    </View>
-                    <View style={[styles.playerContainer, styles.centerFielder]}>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.centerFielder]}
+                        onPress={() => handlePlayerIconPress(selectedPlayers['center'] || null)}
+                        activeOpacity={0.7}
+                    >
                         {selectedPlayers['center'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['center'].name}</Text></View>}
                         <Image source={getPlayerIcon('center')} style={styles.playerIcon} />
-                    </View>
-                    <View style={[styles.playerContainer, styles.rightFielder]}>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.playerContainer, styles.rightFielder]}
+                        onPress={() => handlePlayerIconPress(selectedPlayers['right'] || null)}
+                        activeOpacity={0.7}
+                    >
                         {selectedPlayers['right'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['right'].name}</Text></View>}
                         <Image source={getPlayerIcon('right')} style={styles.playerIcon} />
-                    </View>
+                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -276,6 +344,13 @@ export default function BaseballField() {
             <View style={styles.navBarWrapper}>
                 <NavBar onTabSelect={handleTabSelect} activeTab={activeTab} isPanelOpen={isPanelOpen} />
             </View>
+
+            {/* --- 4. Player Profile Modal --- */}
+            <Profile 
+                player={profilePlayer}
+                visible={isProfileVisible}
+                onClose={handleCloseProfile}
+            />
         </SafeAreaView>
     );
 }
