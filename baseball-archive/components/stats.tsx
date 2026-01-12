@@ -193,6 +193,19 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
     }
   }, [expectedWinRate]);
 
+  // 승률에 따른 배경색 계산
+  const winRateBackgroundColor = useMemo(() => {
+    if (expectedWinRate >= 0.600) {
+      return '#E8F5E9'; // 초록색 계열 (좋음)
+    } else if (expectedWinRate >= 0.500) {
+      return '#E3F2FD'; // 파란색 계열 (양호)
+    } else if (expectedWinRate >= 0.400) {
+      return '#FFF9C4'; // 노란색 계열 (보통)
+    } else {
+      return '#FFEBEE'; // 빨간색 계열 (나쁨)
+    }
+  }, [expectedWinRate]);
+
   // 예상 순위 계산 (KBO는 10개 팀)
   const expectedRank = useMemo(() => {
     // 예상 승률을 기준으로 순위 계산
@@ -570,7 +583,7 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
       {hasData && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>예상 승률</Text>
-          <View style={styles.winRateContainer}>
+          <View style={[styles.winRateContainer, { backgroundColor: winRateBackgroundColor }]}>
             <Text style={styles.winRateValue}>{(expectedWinRate * 100).toFixed(1)}%</Text>
             <Text style={styles.winRateMessage}>{winRateMessage}</Text>
           </View>
@@ -678,7 +691,6 @@ const styles = StyleSheet.create({
     color: '#1976D2',
   },
   winRateContainer: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 24,
     alignItems: 'center',

@@ -29,6 +29,7 @@ export interface Player {
   holds?: number;  // 홀드
   saves?: number;  // 세이브
   strikeouts?: number;  // 탈삼진
+  whip?: number;  // WHIP (이닝당 출루 허용)
 }
 
 // 포지션 이름 표시용

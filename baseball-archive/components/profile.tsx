@@ -468,14 +468,6 @@ const styles = StyleSheet.create({
   profileImageContainer: {
     marginTop: 12,
     marginBottom: 12,
-    alignItems: 'center',
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   profileImagePlaceholder: {
     width: 100,

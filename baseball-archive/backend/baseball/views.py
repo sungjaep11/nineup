@@ -148,6 +148,7 @@ def get_players_by_position_mysql(request):
                     'holds': int(p['HLD']) if p['HLD'] else 0,
                     'saves': int(p['SV']) if p['SV'] else 0,
                     'strikeouts': int(p['SO']) if p['SO'] else 0,
+                    'whip': float(p['WHIP']) if p['WHIP'] else 0,
                 }
                 for idx, p in enumerate(pitchers)
             ]
