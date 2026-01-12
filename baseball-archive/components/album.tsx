@@ -155,7 +155,6 @@ export default function Album({ selectedPlayers }: AlbumProps) {
                                             {POSITION_NAMES[position as PlayerPosition]}
                                         </Text>
                                         <Text style={styles.chipName}>{player.name}</Text>
-                                        <Text style={styles.chipNumber}>#{player.back_number}</Text>
                                     </View>
                                 </View>
                             );
