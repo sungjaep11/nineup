@@ -30,6 +30,8 @@ export default function BaseballField() {
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
     const [selectedPlayers, setSelectedPlayers] = useState<Partial<Record<PlayerPosition, Player>>>({});
+    const [startingPitcher, setStartingPitcher] = useState<Player | null>(null);
+    const [reliefPitchers, setReliefPitchers] = useState<Player[]>([]);
 
     // --- PanResponder Logic ---
     const panResponder = useRef(
@@ -98,6 +100,30 @@ export default function BaseballField() {
         }
     };
 
+
+    const handleStartingPitcherSelect = (player: Player | null) => {
+        setStartingPitcher(player);
+    };
+
+    const handleReliefPitcherSelect = (player: Player | null) => {
+        if (player === null) {
+            // 선택 해제는 player-selector에서 처리
+            return;
+        } else {
+            // 선택 추가/제거 (최대 4명)
+            setReliefPitchers(prev => {
+                if (prev.some(p => p.id === player.id)) {
+                    // 이미 선택된 경우 제거
+                    return prev.filter(p => p.id !== player.id);
+                } else if (prev.length < 4) {
+                    // 4명 미만이면 추가
+                    return [...prev, player];
+                }
+                return prev;
+            });
+        }
+    };
+
     const getPlayerIcon = (position: PlayerPosition) => {
         return selectedPlayers[position] 
             ? require('../assets/images/player.png')
@@ -107,8 +133,17 @@ export default function BaseballField() {
     const renderPanelContent = () => {
         switch (activeTab) {
             case 'album': return <Album selectedPlayers={selectedPlayers} />;
-            case 'roster': return <PlayerSelector selectedPlayers={selectedPlayers} onPlayerSelect={handlePlayerSelect} />;
-            case 'stats': return <Stats selectedPlayers={selectedPlayers} />;
+            case 'roster': return (
+                <PlayerSelector 
+                    selectedPlayers={selectedPlayers} 
+                    onPlayerSelect={handlePlayerSelect}
+                    startingPitcher={startingPitcher}
+                    reliefPitchers={reliefPitchers}
+                    onStartingPitcherSelect={handleStartingPitcherSelect}
+                    onReliefPitcherSelect={handleReliefPitcherSelect}
+                />
+            );
+            case 'stats': return <Stats selectedPlayers={selectedPlayers} startingPitcher={startingPitcher} reliefPitchers={reliefPitchers} />;
             default: return null;
         }
     };
@@ -137,9 +172,30 @@ export default function BaseballField() {
 
                 {/* Player Icons Layer */}
                 <View style={styles.playersLayer}>
+                    {/* 선발 투수 */}
                     <View style={[styles.playerContainer, styles.pitcher]}>
-                        {selectedPlayers['pitcher'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['pitcher'].name}</Text></View>}
-                        <Image source={getPlayerIcon('pitcher')} style={styles.playerIcon} />
+                        {startingPitcher && <View style={styles.nameTag}><Text style={styles.nameText}>{startingPitcher.name}</Text></View>}
+                        <Image source={startingPitcher ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
+                    </View>
+                    {/* 불펜 투수 1 */}
+                    <View style={[styles.playerContainer, styles.relief1]}>
+                        {reliefPitchers[0] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[0].name}</Text></View>}
+                        <Image source={reliefPitchers[0] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
+                    </View>
+                    {/* 불펜 투수 2 */}
+                    <View style={[styles.playerContainer, styles.relief2]}>
+                        {reliefPitchers[1] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[1].name}</Text></View>}
+                        <Image source={reliefPitchers[1] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
+                    </View>
+                    {/* 불펜 투수 3 */}
+                    <View style={[styles.playerContainer, styles.relief3]}>
+                        {reliefPitchers[2] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[2].name}</Text></View>}
+                        <Image source={reliefPitchers[2] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
+                    </View>
+                    {/* 불펜 투수 4 */}
+                    <View style={[styles.playerContainer, styles.relief4]}>
+                        {reliefPitchers[3] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[3].name}</Text></View>}
+                        <Image source={reliefPitchers[3] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
                     </View>
                     <View style={[styles.playerContainer, styles.catcher]}>
                         {selectedPlayers['catcher'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['catcher'].name}</Text></View>}
@@ -262,12 +318,16 @@ const styles = StyleSheet.create({
     nameText: { fontSize: 12, fontWeight: 'bold', color: '#5d4037', textAlign: 'center' },
     
     pitcher: { top: '68%', left: '50%', marginTop: -65, marginLeft: -65 },
+    relief1: { top: '85%', left: '10%', marginTop: -65, marginLeft: -65 },
+    relief2: { top: '85%', right: '10%', marginTop: -65, marginRight: -65 },
+    relief3: { top: '85%', left: '25%', marginTop: -65, marginLeft: -65 },
+    relief4: { top: '85%', right: '25%', marginTop: -65, marginRight: -65 },
     catcher: { bottom: '10%', left: '50%', marginLeft: -68 },
     firstBaseman: { top: '68%', right: '-3%', marginTop: -65 },
     secondBaseman: { top: '55%', right: '15%', marginTop: -65 },
     shortstop: { top: '55%', left: '15%', marginTop: -65 },
     thirdBaseman: { top: '68%', left: '-4%', marginTop: -65 },
-    leftFielder: { top: '35%', left: '10%', marginTop: -65 },
+    leftFielder: { top: '35%', left: '5%', marginTop: -65 },
     centerFielder: { top: '27%', left: '50%', marginLeft: -65, marginTop: -65 },
-    rightFielder: { top: '35%', right: '10%', marginTop: -65 },
+    rightFielder: { top: '35%', right: '5%', marginTop: -65 },
 });

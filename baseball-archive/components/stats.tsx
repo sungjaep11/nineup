@@ -13,6 +13,8 @@ const { width } = Dimensions.get('window');
 
 interface StatsProps {
   selectedPlayers: Partial<Record<PlayerPosition, Player>>;
+  startingPitcher?: Player | null;
+  reliefPitchers?: Player[];
 }
 
 interface TeamStats {
@@ -40,7 +42,7 @@ interface TeamAbilities {
   pitching: number; // 투수력 (0-100)
 }
 
-export default function Stats({ selectedPlayers }: StatsProps) {
+export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers = [] }: StatsProps) {
   // 선택된 선수 중 타자와 투수 분리
   const batters = useMemo(() => {
     const positions: PlayerPosition[] = ['catcher', 'first', 'second', 'shortstop', 'third', 'left', 'center', 'right'];
@@ -50,9 +52,13 @@ export default function Stats({ selectedPlayers }: StatsProps) {
   }, [selectedPlayers]);
 
   const pitchers = useMemo(() => {
-    const pitcher = selectedPlayers['pitcher'];
-    return pitcher ? [pitcher] : [];
-  }, [selectedPlayers]);
+    const allPitchers: Player[] = [];
+    if (startingPitcher) {
+      allPitchers.push(startingPitcher);
+    }
+    allPitchers.push(...reliefPitchers);
+    return allPitchers;
+  }, [startingPitcher, reliefPitchers]);
 
   // 통계 계산
   const teamStats = useMemo((): TeamStats => {
@@ -187,6 +193,110 @@ export default function Stats({ selectedPlayers }: StatsProps) {
     }
   }, [expectedWinRate]);
 
+  // 최적 타순 계산
+  const optimalLineup = useMemo(() => {
+    if (batters.length === 0) return [];
+
+    // 각 선수의 통계를 기반으로 타순별 점수 계산
+    const playersWithScores = batters.map(player => {
+      const avg = player.batting_average || 0;
+      const hr = player.home_runs || 0;
+      const rbi = player.rbis || 0;
+      const sb = player.stolen_bases || 0;
+
+      // 타순별 적합도 점수 계산
+      const scores = {
+        // 1번: 출루율 + 주루 능력 (타율 + 도루)
+        leadoff: avg * 100 + sb * 2,
+        // 2번: 출루율 + 약간의 주루 (타율 중심)
+        second: avg * 120 + sb * 1,
+        // 3번: 가장 높은 타율
+        third: avg * 150,
+        // 4번: 홈런 + 타점 (거포)
+        cleanup: (hr * 10) + (rbi * 5),
+        // 5번: 홈런 + 타점 (4번 보완)
+        fifth: (hr * 8) + (rbi * 4),
+        // 6번: 타점 중심
+        sixth: rbi * 6 + avg * 80,
+        // 7-9번: 나머지
+        bottom: avg * 60 + rbi * 2,
+      };
+
+      return { player, scores };
+    });
+
+    // 타순별로 최적 선수 선택
+    const lineup: (Player | null)[] = [null, null, null, null, null, null, null, null, null];
+    const used = new Set<number>();
+
+    // 1번: 출루율 + 주루 능력이 높은 선수
+    const leadoff = playersWithScores
+      .filter(p => !used.has(p.player.id))
+      .sort((a, b) => b.scores.leadoff - a.scores.leadoff)[0];
+    if (leadoff) {
+      lineup[0] = leadoff.player;
+      used.add(leadoff.player.id);
+    }
+
+    // 2번: 출루율이 높은 선수
+    const second = playersWithScores
+      .filter(p => !used.has(p.player.id))
+      .sort((a, b) => b.scores.second - a.scores.second)[0];
+    if (second) {
+      lineup[1] = second.player;
+      used.add(second.player.id);
+    }
+
+    // 3번: 가장 높은 타율
+    const third = playersWithScores
+      .filter(p => !used.has(p.player.id))
+      .sort((a, b) => b.scores.third - a.scores.third)[0];
+    if (third) {
+      lineup[2] = third.player;
+      used.add(third.player.id);
+    }
+
+    // 4번: 홈런 + 타점이 가장 높은 선수
+    const cleanup = playersWithScores
+      .filter(p => !used.has(p.player.id))
+      .sort((a, b) => b.scores.cleanup - a.scores.cleanup)[0];
+    if (cleanup) {
+      lineup[3] = cleanup.player;
+      used.add(cleanup.player.id);
+    }
+
+    // 5번: 두 번째로 높은 홈런 + 타점
+    const fifth = playersWithScores
+      .filter(p => !used.has(p.player.id))
+      .sort((a, b) => b.scores.fifth - a.scores.fifth)[0];
+    if (fifth) {
+      lineup[4] = fifth.player;
+      used.add(fifth.player.id);
+    }
+
+    // 6번: 타점 중심
+    const sixth = playersWithScores
+      .filter(p => !used.has(p.player.id))
+      .sort((a, b) => b.scores.sixth - a.scores.sixth)[0];
+    if (sixth) {
+      lineup[5] = sixth.player;
+      used.add(sixth.player.id);
+    }
+
+    // 7-9번: 나머지 선수들을 타율 순으로 배치
+    const remaining = playersWithScores
+      .filter(p => !used.has(p.player.id))
+      .sort((a, b) => b.scores.bottom - a.scores.bottom);
+
+    remaining.forEach((p, idx) => {
+      if (idx < 3 && lineup[6 + idx] === null) {
+        lineup[6 + idx] = p.player;
+      }
+    });
+
+    return lineup.filter((p): p is Player => p !== null);
+  }, [batters]);
+
   // 오각형 그래프 컴포넌트
   const PentagonChart = ({ abilities, size = 200 }: { abilities: TeamAbilities; size?: number }) => {
     const center = size / 2;
@@ -294,7 +404,7 @@ export default function Stats({ selectedPlayers }: StatsProps) {
     >
       {/* 타자 통계 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>타자 통계</Text>
+        <Text style={styles.sectionTitle}>타자 평균 기록</Text>
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>타율</Text>
@@ -315,35 +425,99 @@ export default function Stats({ selectedPlayers }: StatsProps) {
         </View>
       </View>
 
-      {/* 투수 통계 */}
-      {pitchers.length > 0 && (
+      {/* 선발 투수 통계 */}
+      {startingPitcher && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>투수 통계</Text>
+          <Text style={styles.sectionTitle}>선발 투수 기록</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>평균자책점</Text>
-              <Text style={styles.statValue}>{teamStats.era.toFixed(2)}</Text>
+              <Text style={styles.statValue}>{(startingPitcher.era || 0).toFixed(2)}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>승</Text>
-              <Text style={styles.statValue}>{teamStats.wins.toFixed(1)}</Text>
+              <Text style={styles.statValue}>{startingPitcher.wins || 0}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>패</Text>
-              <Text style={styles.statValue}>{teamStats.losses.toFixed(1)}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>세이브</Text>
-              <Text style={styles.statValue}>{teamStats.saves.toFixed(1)}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>홀드</Text>
-              <Text style={styles.statValue}>{teamStats.holds.toFixed(1)}</Text>
+              <Text style={styles.statValue}>{startingPitcher.losses || 0}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>탈삼진</Text>
-              <Text style={styles.statValue}>{teamStats.strikeouts.toFixed(1)}</Text>
+              <Text style={styles.statValue}>{startingPitcher.strikeouts || 0}</Text>
             </View>
+          </View>
+        </View>
+      )}
+
+      {/* 불펜 투수 통계 */}
+      {reliefPitchers.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>불펜 투수 평균 기록</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>평균자책점</Text>
+              <Text style={styles.statValue}>
+                {reliefPitchers.length > 0 
+                  ? (reliefPitchers.reduce((sum, p) => sum + (p.era || 0), 0) / reliefPitchers.length).toFixed(2)
+                  : '0.00'}
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>세이브</Text>
+              <Text style={styles.statValue}>
+                {reliefPitchers.length > 0
+                  ? (reliefPitchers.reduce((sum, p) => sum + (p.saves || 0), 0) / reliefPitchers.length).toFixed(1)
+                  : '0.0'}
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>홀드</Text>
+              <Text style={styles.statValue}>
+                {reliefPitchers.length > 0
+                  ? (reliefPitchers.reduce((sum, p) => sum + (p.holds || 0), 0) / reliefPitchers.length).toFixed(1)
+                  : '0.0'}
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>탈삼진</Text>
+              <Text style={styles.statValue}>
+                {reliefPitchers.length > 0
+                  ? (reliefPitchers.reduce((sum, p) => sum + (p.strikeouts || 0), 0) / reliefPitchers.length).toFixed(1)
+                  : '0.0'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* 최적 타순 */}
+      {batters.length > 0 && optimalLineup.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>최적의 타순</Text>
+          <View style={styles.lineupContainer}>
+            {optimalLineup.map((player, index) => (
+              <View 
+                key={player.id} 
+                style={[
+                  styles.lineupItem,
+                  index === optimalLineup.length - 1 && styles.lineupItemLast
+                ]}
+              >
+                <View style={styles.lineupNumber}>
+                  <Text style={styles.lineupNumberText}>{index + 1}</Text>
+                </View>
+                <View style={styles.lineupPlayerInfo}>
+                  <Text style={styles.lineupPlayerName}>{player.name}</Text>
+                  <Text style={styles.lineupPlayerStats}>
+                    타율 {(player.batting_average || 0).toFixed(3)} | 
+                    홈런 {player.home_runs || 0} | 
+                    타점 {player.rbis || 0}
+                    {(player.stolen_bases || 0) > 0 && ` | 도루 ${player.stolen_bases}`}
+                  </Text>
+                </View>
+              </View>
+            ))}
           </View>
         </View>
       )}
@@ -488,5 +662,52 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#424242',
     textAlign: 'center',
+  },
+  lineupContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  lineupItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  lineupItemLast: {
+    borderBottomWidth: 0,
+  },
+  lineupNumber: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#7896AA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  lineupNumberText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  lineupPlayerInfo: {
+    flex: 1,
+  },
+  lineupPlayerName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#3D5566',
+    marginBottom: 4,
+  },
+  lineupPlayerStats: {
+    fontSize: 13,
+    color: '#757575',
   },
 });

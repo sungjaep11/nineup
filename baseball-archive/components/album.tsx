@@ -24,6 +24,8 @@ interface PlayerImage {
     playerName: string;
     fileName: string;
     imageUrl: string;
+    position?: string;
+    playerId?: number;
 }
 
 interface AlbumProps {
@@ -35,6 +37,7 @@ export default function Album({ selectedPlayers }: AlbumProps) {
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState<PlayerImage | null>(null);
     const [hoveredId, setHoveredId] = useState<string | null>(null);
+    const [filteredPlayerName, setFilteredPlayerName] = useState<string | null>(null);
 
     // 이미지 목록 가져오기
     useEffect(() => {
@@ -63,6 +66,17 @@ export default function Album({ selectedPlayers }: AlbumProps) {
         return selectedPlayerNames.includes(img.playerName);
     });
 
+    // 선수 카드 클릭 핸들러
+    const handlePlayerChipClick = (playerName: string) => {
+        if (filteredPlayerName === playerName) {
+            // 같은 선수를 다시 클릭하면 필터 해제
+            setFilteredPlayerName(null);
+        } else {
+            // 다른 선수를 클릭하면 해당 선수로 필터링
+            setFilteredPlayerName(playerName);
+        }
+    };
+
     // 표시할 이미지: 선택된 선수가 있을 때만 필터링, 없으면 빈 배열
     // 같은 선수의 이미지가 같은 행에 나타나도록 정렬
     const displayImages = useMemo(() => {
@@ -70,9 +84,14 @@ export default function Album({ selectedPlayers }: AlbumProps) {
             return [];
         }
         
+        // 필터링된 선수가 있으면 해당 선수의 이미지만 사용
+        const imagesToUse = filteredPlayerName 
+            ? filteredImages.filter(img => img.playerName === filteredPlayerName)
+            : filteredImages;
+        
         // 선수별로 이미지 그룹화
         const imagesByPlayer: Record<string, PlayerImage[]> = {};
-        filteredImages.forEach(img => {
+        imagesToUse.forEach(img => {
             if (!imagesByPlayer[img.playerName]) {
                 imagesByPlayer[img.playerName] = [];
             }
@@ -91,7 +110,7 @@ export default function Album({ selectedPlayers }: AlbumProps) {
         });
         
         return sortedImages;
-    }, [filteredImages, selectedPlayers]);
+    }, [filteredImages, selectedPlayers, filteredPlayerName]);
 
     const renderItem = ({ item }: { item: PlayerImage }) => {
         const isHovered = hoveredId === item.id;
@@ -148,15 +167,32 @@ export default function Album({ selectedPlayers }: AlbumProps) {
                     >
                         {Object.entries(selectedPlayers).map(([position, player]) => {
                             if (!player) return null;
+                            const isSelected = filteredPlayerName === player.name;
                             return (
-                                <View key={position} style={styles.playerChip}>
+                                <TouchableOpacity
+                                    key={position}
+                                    style={[
+                                        styles.playerChip,
+                                        isSelected && styles.playerChipSelected
+                                    ]}
+                                    onPress={() => handlePlayerChipClick(player.name)}
+                                    activeOpacity={0.7}
+                                >
                                     <View style={styles.chipContent}>
-                                        <Text style={styles.chipPosition}>
+                                        <Text style={[
+                                            styles.chipPosition,
+                                            isSelected && styles.chipPositionSelected
+                                        ]}>
                                             {POSITION_NAMES[position as PlayerPosition]}
                                         </Text>
-                                        <Text style={styles.chipName}>{player.name}</Text>
+                                        <Text style={[
+                                            styles.chipName,
+                                            isSelected && styles.chipNameSelected
+                                        ]}>
+                                            {player.name}
+                                        </Text>
                                     </View>
-                                </View>
+                                </TouchableOpacity>
                             );
                         })}
                     </ScrollView>
@@ -358,6 +394,11 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E0E0E0',
     },
+    playerChipSelected: {
+        backgroundColor: '#7896AA',
+        borderColor: '#7896AA',
+        borderWidth: 2,
+    },
     chipContent: {
         alignItems: 'center',
     },
@@ -367,11 +408,17 @@ const styles = StyleSheet.create({
         color: '#7896AA',
         marginBottom: 4,
     },
+    chipPositionSelected: {
+        color: '#FFFFFF',
+    },
     chipName: {
         fontSize: 16,
         fontWeight: 'bold',
         color: '#3D5566',
         marginBottom: 2,
+    },
+    chipNameSelected: {
+        color: '#FFFFFF',
     },
     chipNumber: {
         fontSize: 12,

@@ -13,11 +13,22 @@ import { Player, PlayerPosition, POSITION_NAMES } from '../types/player';
 interface PlayerSelectorProps {
   selectedPlayers: Partial<Record<PlayerPosition, Player>>;
   onPlayerSelect: (position: PlayerPosition, player: Player | null) => void;
+  startingPitcher: Player | null;
+  reliefPitchers: Player[];
+  onStartingPitcherSelect: (player: Player | null) => void;
+  onReliefPitcherSelect: (player: Player | null) => void;
 }
 
-export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: PlayerSelectorProps) {
+export default function PlayerSelector({ 
+  selectedPlayers, 
+  onPlayerSelect,
+  startingPitcher,
+  reliefPitchers,
+  onStartingPitcherSelect,
+  onReliefPitcherSelect
+}: PlayerSelectorProps) {
   // 어떤 포지션이 펼쳐져 있는지 저장
-  const [expandedPosition, setExpandedPosition] = useState<PlayerPosition | null>(null);
+  const [expandedPosition, setExpandedPosition] = useState<PlayerPosition | 'starting' | 'relief' | null>(null);
   
   // API에서 가져온 선수 데이터
   const [playersData, setPlayersData] = useState<Record<PlayerPosition, Player[]> | null>(null);
@@ -28,9 +39,8 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
   // 에러 상태
   const [error, setError] = useState<string | null>(null);
 
-  // 모든 포지션 목록
+  // 모든 포지션 목록 (투수 제외)
   const positions: PlayerPosition[] = [
-    'pitcher',
     'catcher',
     'first',
     'second',
@@ -65,7 +75,7 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
   }, []);
 
   // 포지션 펼치기/접기
-  const togglePosition = (position: PlayerPosition) => {
+  const togglePosition = (position: PlayerPosition | 'starting' | 'relief') => {
     if (expandedPosition === position) {
       // 같은 포지션 클릭 → 접기
       setExpandedPosition(null);
@@ -73,6 +83,40 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
       // 다른 포지션 클릭 → 펼치기
       setExpandedPosition(position);
     }
+  };
+
+  // 선발 투수 선택 핸들러
+  const handleStartingPitcherSelect = (player: Player) => {
+    // 이미 선택된 선수를 다시 클릭하면 선택 해제
+    if (startingPitcher && startingPitcher.id === player.id) {
+      onStartingPitcherSelect(null);
+    } else {
+      // 선발 투수 선택 시 불펜에서 제거
+      if (reliefPitchers.some(p => p.id === player.id)) {
+        onReliefPitcherSelect(player);
+      }
+      onStartingPitcherSelect(player);
+    }
+    setExpandedPosition(null);
+  };
+
+  // 불펜 투수 선택 핸들러
+  const handleReliefPitcherSelect = (player: Player) => {
+    // 이미 선택된 선수를 다시 클릭하면 선택 해제
+    if (reliefPitchers.some(p => p.id === player.id)) {
+      onReliefPitcherSelect(player);
+    } else {
+      // 불펜 4명 제한
+      if (reliefPitchers.length >= 4) {
+        return; // 최대 4명까지만 선택 가능
+      }
+      // 불펜 투수 선택 시 선발에서 제거
+      if (startingPitcher && startingPitcher.id === player.id) {
+        onStartingPitcherSelect(null);
+      }
+      onReliefPitcherSelect(player);
+    }
+    // 불펜은 여러 명 선택하므로 리스트 닫지 않음
   };
 
   // 선수 선택/해제 (토글)
@@ -149,6 +193,143 @@ export default function PlayerSelector({ selectedPlayers, onPlayerSelect }: Play
         bounces={true}
         scrollEnabled={true}
         alwaysBounceVertical={true}>
+        {/* 선발 투수 섹션 */}
+        {playersData && playersData.pitcher && (
+          <View style={styles.positionSection}>
+            <TouchableOpacity
+              style={[
+                styles.positionHeader,
+                expandedPosition === 'starting' && styles.positionHeaderExpanded,
+              ]}
+              onPress={() => togglePosition('starting')}>
+              <View style={styles.positionHeaderLeft}>
+                <Text style={styles.positionIcon}>
+                  {expandedPosition === 'starting' ? '▼' : '▶'}
+                </Text>
+                <Text style={styles.positionName}>선발 투수</Text>
+              </View>
+              <View style={styles.selectedPlayerInfo}>
+                {startingPitcher ? (
+                  <Text style={styles.selectedPlayerName}>
+                    {startingPitcher.name}
+                  </Text>
+                ) : (
+                  <Text style={styles.noSelection}>선택 안됨</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+            {expandedPosition === 'starting' && (
+              <View style={styles.playerListContainer}>
+                {playersData.pitcher
+                  .filter(p => !reliefPitchers.some(rp => rp.id === p.id))
+                  .map((player, index) => (
+                    <TouchableOpacity
+                      key={`starting-${player.id}-${index}`}
+                      style={[
+                        styles.playerCard,
+                        startingPitcher?.id === player.id && styles.selectedCard,
+                      ]}
+                      onPress={() => handleStartingPitcherSelect(player)}>
+                      <View style={styles.checkboxContainer}>
+                        <View style={[
+                          styles.checkbox,
+                          startingPitcher?.id === player.id && styles.checkboxSelected,
+                        ]}>
+                          {startingPitcher?.id === player.id && (
+                            <Text style={styles.checkmark}>✓</Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={styles.playerInfo}>
+                        <View style={styles.playerHeader}>
+                          <Text style={styles.playerName}>{player.name}</Text>
+                        </View>
+                        <Text style={styles.teamName}>{player.team}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* 불펜 투수 섹션 */}
+        {playersData && playersData.pitcher && (
+          <View style={styles.positionSection}>
+            <TouchableOpacity
+              style={[
+                styles.positionHeader,
+                expandedPosition === 'relief' && styles.positionHeaderExpanded,
+              ]}
+              onPress={() => togglePosition('relief')}>
+              <View style={styles.positionHeaderLeft}>
+                <Text style={styles.positionIcon}>
+                  {expandedPosition === 'relief' ? '▼' : '▶'}
+                </Text>
+                <Text style={styles.positionName}>불펜 투수</Text>
+              </View>
+              <View style={styles.selectedPlayerInfo}>
+                {reliefPitchers.length > 0 ? (
+                  <Text style={styles.selectedPlayerName}>
+                    {reliefPitchers.length}명 선택됨
+                  </Text>
+                ) : (
+                  <Text style={styles.noSelection}>선택 안됨</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+            {expandedPosition === 'relief' && (
+              <View style={styles.playerListContainer}>
+                {playersData.pitcher
+                  .filter(p => !startingPitcher || startingPitcher.id !== p.id)
+                  .map((player, index) => {
+                    const isSelected = reliefPitchers.some(rp => rp.id === player.id);
+                    const isDisabled = reliefPitchers.length >= 4 && !isSelected;
+                    return (
+                      <TouchableOpacity
+                        key={`relief-${player.id}-${index}`}
+                        style={[
+                          styles.playerCard,
+                          isSelected && styles.selectedCard,
+                          isDisabled && styles.disabledCard,
+                        ]}
+                        onPress={() => !isDisabled && handleReliefPitcherSelect(player)}
+                        disabled={isDisabled}>
+                        <View style={styles.checkboxContainer}>
+                          <View style={[
+                            styles.checkbox,
+                            isSelected && styles.checkboxSelected,
+                            isDisabled && styles.checkboxDisabled,
+                          ]}>
+                            {isSelected && (
+                              <Text style={styles.checkmark}>✓</Text>
+                            )}
+                          </View>
+                        </View>
+                        <View style={styles.playerInfo}>
+                          <View style={styles.playerHeader}>
+                            <Text style={[
+                              styles.playerName,
+                              isDisabled && styles.disabledText
+                            ]}>
+                              {player.name}
+                            </Text>
+                          </View>
+                          <Text style={[
+                            styles.teamName,
+                            isDisabled && styles.disabledText
+                          ]}>
+                            {player.team}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+              </View>
+            )}
+          </View>
+        )}
+
         {positions.map((position) => {
           const players = playersData[position] || [];  // API에서 가져온 데이터 사용
           const expanded = expandedPosition === position;
@@ -417,5 +598,14 @@ const styles = StyleSheet.create({
   teamName: {
     fontSize: 13,
     color: '#757575',
+  },
+  disabledCard: {
+    opacity: 0.5,
+  },
+  checkboxDisabled: {
+    borderColor: '#BDBDBD',
+  },
+  disabledText: {
+    color: '#BDBDBD',
   },
 });
