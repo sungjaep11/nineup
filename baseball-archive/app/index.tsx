@@ -1,3 +1,4 @@
+import { BlurView } from 'expo-blur';
 import React, { useRef, useState } from 'react';
 import {
     Animated,
@@ -233,32 +234,47 @@ export default function BaseballField() {
             </View>
 
             {/* --- 2. Sliding Panel --- */}
-            <Animated.View style={[styles.slidingPanel, { transform: [{ translateY: slideAnim }] }]}>
-                <View style={styles.panelHeader} {...panResponder.panHandlers}>
-                    <View style={styles.panelHandle} />
-                </View>
-                <View style={styles.panelBody}>
-                    <View style={styles.panelTitleContainer}>
-                        <Text style={styles.panelTitle}>
-                            {activeTab === 'album' ? '앨범' : 
-                             activeTab === 'roster' ? '선수 선택' : 
-                             activeTab === 'stats' ? '통계' : ''}
-                        </Text>
-                        {activeTab === 'album' && Object.keys(selectedPlayers).length > 0 && (
-                            <View style={styles.countBadge}>
-                                <Text style={styles.countText}>
-                                    {Object.keys(selectedPlayers).length}
-                                </Text>
-                            </View>
-                        )}
+            <Animated.View 
+                style={[
+                    styles.slidingPanel, 
+                    { 
+                        transform: [{ translateY: slideAnim }],
+                        opacity: slideAnim.interpolate({
+                            inputRange: [0, PANEL_HEIGHT],
+                            outputRange: [1, 0],
+                            extrapolate: 'clamp',
+                        }),
+                    }
+                ]}
+                pointerEvents={isPanelOpen ? 'auto' : 'none'}
+            >
+                <BlurView intensity={80} tint="light" style={styles.panelBlurContainer}>
+                    <View style={styles.panelHeader} {...panResponder.panHandlers}>
+                        <View style={styles.panelHandle} />
                     </View>
-                    {renderPanelContent()}
-                </View>
+                    <View style={styles.panelBody}>
+                        <View style={styles.panelTitleContainer}>
+                            <Text style={styles.panelTitle}>
+                                {activeTab === 'album' ? '앨범' : 
+                                 activeTab === 'roster' ? '선수 선택' : 
+                                 activeTab === 'stats' ? '통계' : ''}
+                            </Text>
+                            {activeTab === 'album' && Object.keys(selectedPlayers).length > 0 && (
+                                <View style={styles.countBadge}>
+                                    <Text style={styles.countText}>
+                                        {Object.keys(selectedPlayers).length}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                        {renderPanelContent()}
+                    </View>
+                </BlurView>
             </Animated.View>
 
             {/* --- 3. Navigation Bar --- */}
             <View style={styles.navBarWrapper}>
-                <NavBar onTabSelect={handleTabSelect} activeTab={activeTab} />
+                <NavBar onTabSelect={handleTabSelect} activeTab={activeTab} isPanelOpen={isPanelOpen} />
             </View>
         </SafeAreaView>
     );
@@ -297,9 +313,20 @@ const styles = StyleSheet.create({
     // --- Panel Styles ---
     slidingPanel: {
         position: 'absolute', bottom: 90, width: width, height: PANEL_HEIGHT,
-        backgroundColor: '#F0F4F7', borderTopLeftRadius: 30, borderTopRightRadius: 30,
+        borderTopLeftRadius: 30, borderTopRightRadius: 30,
         zIndex: 10, shadowColor: "#000", shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.1, shadowRadius: 5, elevation: 15, paddingBottom: 0,
+        shadowOpacity: 0.2, shadowRadius: 10, elevation: 15, paddingBottom: 0,
+        overflow: 'hidden',
+    },
+    panelBlurContainer: {
+        flex: 1,
+        backgroundColor: 'rgba(240, 244, 247, 0.5)',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        borderTopWidth: 1,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.4)',
     },
     panelHeader: { width: '100%', height: 50, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(100, 130, 150, 0.3)' },
     panelHandle: { width: 50, height: 6, borderRadius: 3, backgroundColor: '#7896AA' },

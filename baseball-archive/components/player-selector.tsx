@@ -1,13 +1,15 @@
+import { BlurView } from 'expo-blur';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
-import { getMysqlPlayersByPosition } from '../services/playerService'; // MySQL API 사용
+import { getMysqlPlayersByPosition } from '../services/playerService';
 import { Player, PlayerPosition, POSITION_NAMES } from '../types/player';
 
 interface PlayerSelectorProps {
@@ -27,125 +29,92 @@ export default function PlayerSelector({
   onStartingPitcherSelect,
   onReliefPitcherSelect
 }: PlayerSelectorProps) {
-  // 어떤 포지션이 펼쳐져 있는지 저장
   const [expandedPosition, setExpandedPosition] = useState<PlayerPosition | 'starting' | 'relief' | null>(null);
-  
-  // API에서 가져온 선수 데이터
   const [playersData, setPlayersData] = useState<Record<PlayerPosition, Player[]> | null>(null);
-  
-  // 로딩 상태
   const [loading, setLoading] = useState<boolean>(true);
-  
-  // 에러 상태
   const [error, setError] = useState<string | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
 
-  // 모든 포지션 목록 (투수 제외)
-  const positions: PlayerPosition[] = [
-    'catcher',
-    'first',
-    'second',
-    'shortstop',
-    'third',
-    'left',
-    'center',
-    'right',
-  ];
+  const teams = ['KIA', 'KT', '삼성', 'LG', '두산', '롯데', 'NC', '한화', '키움', 'SSG'];
+  const teamDisplayNames: Record<string, string> = {
+    'KIA': 'KIA 타이거즈', 'KT': 'KT 위즈', '삼성': '삼성 라이온즈', 'LG': 'LG 트윈스',
+    '두산': '두산 베어스', '롯데': '롯데 자이언츠', 'NC': 'NC 다이노스', '한화': '한화 이글스',
+    '키움': '키움 히어로즈', 'SSG': 'SSG 랜더스',
+  };
+  const positions: PlayerPosition[] = ['catcher', 'first', 'second', 'shortstop', 'third', 'left', 'center', 'right'];
 
-  // 컴포넌트 마운트 시 MySQL에서 선수 데이터 가져오기
   useEffect(() => {
     const fetchPlayers = async () => {
       try {
         setLoading(true);
         setError(null);
-        
         console.log('📊 MySQL에서 선수 데이터 가져오는 중...');
-        // MySQL API에서 모든 포지션별 선수 데이터 가져오기
         const data = await getMysqlPlayersByPosition();
         console.log('✅ 선수 데이터 로드 완료!', Object.keys(data));
         setPlayersData(data);
       } catch (err) {
         console.error('❌ Error loading MySQL players:', err);
-        setError('MySQL 선수 데이터를 불러오는데 실패했습니다. Django 서버와 MySQL 연결을 확인해주세요.');
+        setError('MySQL 선수 데이터를 불러오는데 실패했습니다.');
       } finally {
         setLoading(false);
       }
     };
-
     fetchPlayers();
   }, []);
 
-  // 포지션 펼치기/접기
   const togglePosition = (position: PlayerPosition | 'starting' | 'relief') => {
-    if (expandedPosition === position) {
-      // 같은 포지션 클릭 → 접기
-      setExpandedPosition(null);
-    } else {
-      // 다른 포지션 클릭 → 펼치기
-      setExpandedPosition(position);
-    }
+    if (expandedPosition === position) setExpandedPosition(null);
+    else setExpandedPosition(position);
   };
 
-  // 선발 투수 선택 핸들러
   const handleStartingPitcherSelect = (player: Player) => {
-    // 이미 선택된 선수를 다시 클릭하면 선택 해제
     if (startingPitcher && startingPitcher.id === player.id) {
       onStartingPitcherSelect(null);
     } else {
-      // 선발 투수 선택 시 불펜에서 제거
-      if (reliefPitchers.some(p => p.id === player.id)) {
-        onReliefPitcherSelect(player);
-      }
+      if (reliefPitchers.some(p => p.id === player.id)) onReliefPitcherSelect(player);
       onStartingPitcherSelect(player);
     }
     setExpandedPosition(null);
   };
 
-  // 불펜 투수 선택 핸들러
   const handleReliefPitcherSelect = (player: Player) => {
-    // 이미 선택된 선수를 다시 클릭하면 선택 해제
     if (reliefPitchers.some(p => p.id === player.id)) {
       onReliefPitcherSelect(player);
     } else {
-      // 불펜 4명 제한
-      if (reliefPitchers.length >= 4) {
-        return; // 최대 4명까지만 선택 가능
-      }
-      // 불펜 투수 선택 시 선발에서 제거
-      if (startingPitcher && startingPitcher.id === player.id) {
-        onStartingPitcherSelect(null);
-      }
+      if (reliefPitchers.length >= 4) return;
+      if (startingPitcher && startingPitcher.id === player.id) onStartingPitcherSelect(null);
       onReliefPitcherSelect(player);
+      if (reliefPitchers.length === 3) setExpandedPosition(null);
     }
-    // 불펜은 여러 명 선택하므로 리스트 닫지 않음
   };
 
-  // 선수 선택/해제 (토글)
   const handlePlayerSelect = (position: PlayerPosition, player: Player) => {
     const currentSelectedPlayer = selectedPlayers[position];
-    
-    // 이미 선택된 선수를 다시 클릭하면 선택 해제
     if (currentSelectedPlayer && currentSelectedPlayer.id === player.id) {
       onPlayerSelect(position, null);
     } else {
-      // 새로운 선수 선택
       onPlayerSelect(position, player);
     }
-    
-    // 선택/해제 후 자동으로 리스트 닫기
     setExpandedPosition(null);
   };
 
-  // 로딩 중일 때
+  const filterPlayersByTeam = (players: Player[]) => {
+    if (!selectedTeam) return players;
+    return players.filter(player => {
+      const playerTeam = player.team || '';
+      return playerTeam === selectedTeam || playerTeam.startsWith(selectedTeam);
+    });
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#7896AA" />
+        <ActivityIndicator size="large" color="#FFFFFF" />
         <Text style={styles.loadingText}>선수 데이터를 불러오는 중...</Text>
       </View>
     );
   }
 
-  // 에러 발생 시
   if (error) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -153,13 +122,8 @@ export default function PlayerSelector({
         <TouchableOpacity 
           style={styles.retryButton}
           onPress={() => {
-            setLoading(true);
-            setError(null);
-            // 재시도
-            getMysqlPlayersByPosition()
-              .then((data: Record<PlayerPosition, Player[]>) => setPlayersData(data))
-              .catch((err: Error) => setError('선수 데이터를 불러오는데 실패했습니다.'))
-              .finally(() => setLoading(false));
+            setLoading(true); setError(null);
+            getMysqlPlayersByPosition().then(setPlayersData).catch(() => setError('실패')).finally(() => setLoading(false));
           }}
         >
           <Text style={styles.retryButtonText}>다시 시도</Text>
@@ -168,7 +132,6 @@ export default function PlayerSelector({
     );
   }
 
-  // 데이터가 없을 때
   if (!playersData) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -177,6 +140,8 @@ export default function PlayerSelector({
     );
   }
 
+  const blurIntensity = Platform.OS === 'android' ? 30 : 20;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -184,68 +149,102 @@ export default function PlayerSelector({
         <Text style={styles.subtitle}>각 포지션별로 선수를 선택하세요</Text>
       </View>
 
-      {/* 포지션 리스트 (세로로 나열) */}
+      {/* 팀 필터 */}
+      <View style={styles.filterContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          <TouchableOpacity
+            style={[styles.filterChip, !selectedTeam && styles.filterChipActive]}
+            onPress={() => setSelectedTeam(null)}
+          >
+            <Text style={[styles.filterChipText, !selectedTeam && styles.filterChipTextActive]}>전체</Text>
+          </TouchableOpacity>
+          {teams.map((team) => (
+            <TouchableOpacity
+              key={team}
+              style={[styles.filterChip, selectedTeam === team && styles.filterChipActive]}
+              onPress={() => setSelectedTeam(team)}
+            >
+              <Text style={[styles.filterChipText, selectedTeam === team && styles.filterChipTextActive]}>
+                {teamDisplayNames[team] || team}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* 포지션 리스트 */}
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
-        nestedScrollEnabled={true}
-        bounces={true}
-        scrollEnabled={true}
-        alwaysBounceVertical={true}>
+      >
+        
         {/* 선발 투수 섹션 */}
         {playersData && playersData.pitcher && (
           <View style={styles.positionSection}>
             <TouchableOpacity
-              style={[
-                styles.positionHeader,
-                expandedPosition === 'starting' && styles.positionHeaderExpanded,
-              ]}
-              onPress={() => togglePosition('starting')}>
-              <View style={styles.positionHeaderLeft}>
-                <Text style={styles.positionIcon}>
-                  {expandedPosition === 'starting' ? '▼' : '▶'}
-                </Text>
-                <Text style={styles.positionName}>선발 투수</Text>
-              </View>
-              <View style={styles.selectedPlayerInfo}>
-                {startingPitcher ? (
-                  <Text style={styles.selectedPlayerName}>
-                    {startingPitcher.name}
-                  </Text>
-                ) : (
-                  <Text style={styles.noSelection}>선택 안됨</Text>
-                )}
-              </View>
+              style={styles.positionHeaderContainer}
+              onPress={() => togglePosition('starting')}
+              activeOpacity={0.8}
+            >
+              <BlurView 
+                intensity={blurIntensity} 
+                tint="light" 
+                style={[styles.glassView, styles.positionHeaderContent]}
+              >
+                <View style={styles.positionHeaderLeft}>
+                  <Text style={styles.positionIcon}>{expandedPosition === 'starting' ? '▼' : '▶'}</Text>
+                  <Text style={styles.positionName}>선발 투수</Text>
+                </View>
+                <View style={styles.selectedPlayerInfo}>
+                  {startingPitcher ? (
+                    <Text style={styles.selectedPlayerName}>{startingPitcher.name}</Text>
+                  ) : (
+                    <Text style={styles.noSelection}>선택 안됨</Text>
+                  )}
+                </View>
+              </BlurView>
             </TouchableOpacity>
+            
             {expandedPosition === 'starting' && (
-              <View style={styles.playerListContainer}>
-                {playersData.pitcher
+              <View style={styles.playerListTransparent}>
+                {filterPlayersByTeam(playersData.pitcher)
                   .filter(p => !reliefPitchers.some(rp => rp.id === p.id))
                   .map((player, index) => (
                     <TouchableOpacity
                       key={`starting-${player.id}-${index}`}
-                      style={[
-                        styles.playerCard,
-                        startingPitcher?.id === player.id && styles.selectedCard,
-                      ]}
-                      onPress={() => handleStartingPitcherSelect(player)}>
-                      <View style={styles.checkboxContainer}>
-                        <View style={[
-                          styles.checkbox,
-                          startingPitcher?.id === player.id && styles.checkboxSelected,
-                        ]}>
-                          {startingPitcher?.id === player.id && (
-                            <Text style={styles.checkmark}>✓</Text>
-                          )}
+                      style={styles.playerCardContainer}
+                      onPress={() => handleStartingPitcherSelect(player)}
+                      activeOpacity={0.8}
+                    >
+                      <BlurView 
+                        intensity={blurIntensity} 
+                        tint="light"
+                        style={[
+                          styles.glassView,
+                          styles.playerCardContent,
+                          startingPitcher?.id === player.id && styles.selectedCardBlur,
+                        ]}
+                      >
+                        <View style={styles.checkboxContainer}>
+                          <View style={[
+                            styles.checkbox,
+                            startingPitcher?.id === player.id && styles.checkboxSelected,
+                          ]}>
+                            {startingPitcher?.id === player.id && <Text style={styles.checkmark}>✓</Text>}
+                          </View>
                         </View>
-                      </View>
-                      <View style={styles.playerInfo}>
-                        <View style={styles.playerHeader}>
-                          <Text style={styles.playerName}>{player.name}</Text>
+                        <View style={styles.playerInfo}>
+                          <View style={styles.playerHeader}>
+                            <Text style={styles.playerName}>{player.name}</Text>
+                          </View>
+                          <Text style={styles.teamName}>{player.team}</Text>
                         </View>
-                        <Text style={styles.teamName}>{player.team}</Text>
-                      </View>
+                      </BlurView>
                     </TouchableOpacity>
                   ))}
               </View>
@@ -257,30 +256,31 @@ export default function PlayerSelector({
         {playersData && playersData.pitcher && (
           <View style={styles.positionSection}>
             <TouchableOpacity
-              style={[
-                styles.positionHeader,
-                expandedPosition === 'relief' && styles.positionHeaderExpanded,
-              ]}
-              onPress={() => togglePosition('relief')}>
-              <View style={styles.positionHeaderLeft}>
-                <Text style={styles.positionIcon}>
-                  {expandedPosition === 'relief' ? '▼' : '▶'}
-                </Text>
-                <Text style={styles.positionName}>불펜 투수</Text>
-              </View>
-              <View style={styles.selectedPlayerInfo}>
-                {reliefPitchers.length > 0 ? (
-                  <Text style={styles.selectedPlayerName}>
-                    {reliefPitchers.length}명 선택됨
-                  </Text>
-                ) : (
-                  <Text style={styles.noSelection}>선택 안됨</Text>
-                )}
-              </View>
+              style={styles.positionHeaderContainer}
+              onPress={() => togglePosition('relief')}
+              activeOpacity={0.8}
+            >
+              <BlurView 
+                intensity={blurIntensity} 
+                tint="light" 
+                style={[styles.glassView, styles.positionHeaderContent]}
+              >
+                <View style={styles.positionHeaderLeft}>
+                  <Text style={styles.positionIcon}>{expandedPosition === 'relief' ? '▼' : '▶'}</Text>
+                  <Text style={styles.positionName}>불펜 투수</Text>
+                </View>
+                <View style={styles.selectedPlayerInfo}>
+                  {reliefPitchers.length > 0 ? (
+                    <Text style={styles.selectedPlayerName}>{reliefPitchers.length}명 선택됨</Text>
+                  ) : (
+                    <Text style={styles.noSelection}>선택 안됨</Text>
+                  )}
+                </View>
+              </BlurView>
             </TouchableOpacity>
             {expandedPosition === 'relief' && (
-              <View style={styles.playerListContainer}>
-                {playersData.pitcher
+              <View style={styles.playerListTransparent}>
+                {filterPlayersByTeam(playersData.pitcher)
                   .filter(p => !startingPitcher || startingPitcher.id !== p.id)
                   .map((player, index) => {
                     const isSelected = reliefPitchers.some(rp => rp.id === player.id);
@@ -288,40 +288,36 @@ export default function PlayerSelector({
                     return (
                       <TouchableOpacity
                         key={`relief-${player.id}-${index}`}
-                        style={[
-                          styles.playerCard,
-                          isSelected && styles.selectedCard,
-                          isDisabled && styles.disabledCard,
-                        ]}
+                        style={[styles.playerCardContainer, isDisabled && styles.disabledCardContainer]}
                         onPress={() => !isDisabled && handleReliefPitcherSelect(player)}
-                        disabled={isDisabled}>
+                        disabled={isDisabled}
+                        activeOpacity={0.8}
+                      >
+                         <BlurView 
+                            intensity={blurIntensity} 
+                            tint="light"
+                            style={[
+                              styles.glassView,
+                              styles.playerCardContent,
+                              isSelected && styles.selectedCardBlur,
+                            ]}
+                          >
                         <View style={styles.checkboxContainer}>
                           <View style={[
                             styles.checkbox,
                             isSelected && styles.checkboxSelected,
                             isDisabled && styles.checkboxDisabled,
                           ]}>
-                            {isSelected && (
-                              <Text style={styles.checkmark}>✓</Text>
-                            )}
+                            {isSelected && <Text style={styles.checkmark}>✓</Text>}
                           </View>
                         </View>
                         <View style={styles.playerInfo}>
                           <View style={styles.playerHeader}>
-                            <Text style={[
-                              styles.playerName,
-                              isDisabled && styles.disabledText
-                            ]}>
-                              {player.name}
-                            </Text>
+                            <Text style={[styles.playerName, isDisabled && styles.disabledText]}>{player.name}</Text>
                           </View>
-                          <Text style={[
-                            styles.teamName,
-                            isDisabled && styles.disabledText
-                          ]}>
-                            {player.team}
-                          </Text>
+                          <Text style={[styles.teamName, isDisabled && styles.disabledText]}>{player.team}</Text>
                         </View>
+                      </BlurView>
                       </TouchableOpacity>
                     );
                   })}
@@ -330,60 +326,63 @@ export default function PlayerSelector({
           </View>
         )}
 
+        {/* 나머지 포지션 섹션 */}
         {positions.map((position) => {
-          const players = playersData[position] || [];  // API에서 가져온 데이터 사용
+          const players = playersData[position] || [];
           const expanded = expandedPosition === position;
           const selectedPlayer = selectedPlayers[position];
 
           return (
             <View key={position} style={styles.positionSection}>
-              {/* 포지션 헤더 (클릭 가능) */}
               <TouchableOpacity
-                style={[
-                  styles.positionHeader,
-                  expanded && styles.positionHeaderExpanded,
-                ]}
-                onPress={() => togglePosition(position)}>
+                style={styles.positionHeaderContainer}
+                onPress={() => togglePosition(position)}
+                activeOpacity={0.8}
+              >
+                 <BlurView 
+                  intensity={blurIntensity} 
+                  tint="light" 
+                  style={[styles.glassView, styles.positionHeaderContent]}
+                >
                 <View style={styles.positionHeaderLeft}>
-                  <Text style={styles.positionIcon}>
-                    {expanded ? '▼' : '▶'}
-                  </Text>
-                  <Text style={styles.positionName}>
-                    {POSITION_NAMES[position]}
-                  </Text>
+                  <Text style={styles.positionIcon}>{expanded ? '▼' : '▶'}</Text>
+                  <Text style={styles.positionName}>{POSITION_NAMES[position]}</Text>
                 </View>
 
-                {/* 선택된 선수 정보 표시 */}
                 <View style={styles.selectedPlayerInfo}>
                   {selectedPlayer ? (
-                    <Text style={styles.selectedPlayerName}>
-                      {selectedPlayer.name}
-                    </Text>
+                    <Text style={styles.selectedPlayerName}>{selectedPlayer.name}</Text>
                   ) : (
                     <Text style={styles.noSelection}>선택 안됨</Text>
                   )}
                 </View>
+                </BlurView>
               </TouchableOpacity>
 
-              {/* 선수 리스트 (펼쳐진 경우만 표시) */}
               {expanded && (
-                <View style={styles.playerListContainer}>
-                  {players.map((player, index) => (
+                 <View style={styles.playerListTransparent}>
+                  {filterPlayersByTeam(players).map((player, index) => (
                     <TouchableOpacity
                       key={`${position}-${player.id}-${index}`}
-                      style={[
-                        styles.playerCard,
-                        selectedPlayer?.id === player.id && styles.selectedCard,
-                      ]}
-                      onPress={() => handlePlayerSelect(position, player)}>
+                      style={styles.playerCardContainer}
+                      onPress={() => handlePlayerSelect(position, player)}
+                      activeOpacity={0.8}
+                    >
+                       <BlurView 
+                          intensity={blurIntensity} 
+                          tint="light"
+                          style={[
+                            styles.glassView,
+                            styles.playerCardContent,
+                            selectedPlayer?.id === player.id && styles.selectedCardBlur,
+                          ]}
+                        >
                       <View style={styles.checkboxContainer}>
                         <View style={[
                           styles.checkbox,
                           selectedPlayer?.id === player.id && styles.checkboxSelected,
                         ]}>
-                          {selectedPlayer?.id === player.id && (
-                            <Text style={styles.checkmark}>✓</Text>
-                          )}
+                          {selectedPlayer?.id === player.id && <Text style={styles.checkmark}>✓</Text>}
                         </View>
                       </View>
                       
@@ -393,6 +392,7 @@ export default function PlayerSelector({
                         </View>
                         <Text style={styles.teamName}>{player.team}</Text>
                       </View>
+                    </BlurView>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -406,206 +406,98 @@ export default function PlayerSelector({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1, backgroundColor: 'transparent' },
+  header: { display: 'none' },
+  title: { display: 'none' },
+  subtitle: { display: 'none' },
+  centerContent: { justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 16, fontSize: 16, color: '#FFFFFF' },
+  errorText: { fontSize: 16, color: '#ff6b6b', textAlign: 'center', paddingHorizontal: 20 },
+  retryButton: { marginTop: 20, backgroundColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  retryButtonText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
+  scrollView: { flex: 1, width: '100%', minHeight: 0 },
+  scrollContent: { flexGrow: 1, paddingBottom: 40, paddingTop: 10 },
+  positionSection: { marginBottom: 2 },
+
+  // [중요] Glassmorphism 공통 스타일 - 테두리 제거
+  glassView: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    // borderColor: 'rgba(255, 255, 255, 0.2)', // [삭제] 테두리 제거
+    // borderWidth: 1, // [삭제] 테두리 제거
+    overflow: 'hidden',
+  },
+
+  // 헤더
+  positionHeaderContainer: {
+    marginHorizontal: 12,
+    marginVertical: 4,
+    borderRadius: 12,
     backgroundColor: 'transparent',
   },
-  header: {
-    display: 'none',
-  },
-  title: {
-    display: 'none',
-  },
-  subtitle: {
-    display: 'none',
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#3D5566',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#ff6b6b',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  retryButton: {
-    marginTop: 20,
-    backgroundColor: '#7896AA',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  scrollView: {
-    flex: 1,
-    width: '100%',
-    minHeight: 0,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 40,
-    paddingTop: 10,
-  },
-  positionSection: {
-    marginBottom: 1,
-  },
-  positionHeader: {
-    backgroundColor: '#FFFFFF',
+  positionHeaderContent: {
     padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(100, 130, 150, 0.2)',
     minHeight: 60,
     borderRadius: 12,
-    marginHorizontal: 12,
-    marginVertical: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  positionHeaderExpanded: {
-    backgroundColor: '#F0F4F7',
-    borderBottomColor: 'rgba(100, 130, 150, 0.3)',
-    borderBottomWidth: 2,
+  positionHeaderLeft: { flexDirection: 'row', alignItems: 'center', flex: 0 },
+  positionIcon: { fontSize: 14, color: '#333333', marginRight: 12, width: 20 },
+  positionName: { fontSize: 18, fontWeight: 'bold', color: '#000000', minWidth: 60 },
+  selectedPlayerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginLeft: 16 },
+  selectedPlayerName: { fontSize: 16, fontWeight: '600', color: '#000000', marginRight: 6 },
+  selectedPlayerDetail: { fontSize: 14, color: '#FFFFFF', backgroundColor: '#7896AA', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  noSelection: { fontSize: 14, color: '#555555', fontStyle: 'italic' },
+
+  // 필터
+  filterContainer: { paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'transparent', borderBottomWidth: 0 },
+  filterScrollContent: { paddingRight: 20 },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginRight: 8 },
+  filterChipActive: { backgroundColor: 'rgba(120, 150, 170, 0.5)' },
+  filterChipText: { fontSize: 13, color: '#000000', fontWeight: '600' },
+  filterChipTextActive: { color: '#FFFFFF', fontWeight: '600' },
+
+  // 리스트 컨테이너 - 배경/블러 제거 (완전 투명)
+  playerListTransparent: {
+    backgroundColor: 'transparent', 
+    paddingVertical: 4,
   },
-  positionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 0,
-  },
-  positionIcon: {
-    fontSize: 14,
-    color: '#7896AA',
-    marginRight: 12,
-    width: 20,
-  },
-  positionName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#3D5566',
-    minWidth: 60,
-  },
-  selectedPlayerInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginLeft: 16,
-  },
-  selectedPlayerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#7896AA',
-    marginRight: 6,
-  },
-  selectedPlayerDetail: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    backgroundColor: '#7896AA',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  noSelection: {
-    fontSize: 14,
-    color: '#757575',
-    fontStyle: 'italic',
-  },
-  playerListContainer: {
-    backgroundColor: '#F0F4F7',
-    paddingVertical: 8,
-  },
-  playerCard: {
-    backgroundColor: '#FFFFFF',
+
+  // 선수 카드
+  playerCardContainer: {
     marginHorizontal: 16,
-    marginVertical: 6,
+    marginVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  playerCardContent: {
     padding: 12,
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  selectedCard: {
-    borderWidth: 2,
-    borderColor: '#7896AA',
-    backgroundColor: '#F0F4F7',
+  // [수정] 선택된 카드 테두리 제거
+  selectedCardBlur: {
+    backgroundColor: 'rgba(120, 150, 170, 0.3)',
+    // borderColor: '#7896AA', // [삭제] 테두리 제거
+    // borderWidth: 1.5, // [삭제] 테두리 제거
   },
-  checkboxContainer: {
-    marginRight: 12,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  checkboxSelected: {
-    backgroundColor: '#7896AA',
-    borderColor: '#7896AA',
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  playerInfo: {
-    flex: 1,
-  },
-  playerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  playerName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#3D5566',
-    marginRight: 8,
-  },
-  backNumber: {
-    fontSize: 14,
-    color: '#7896AA',
-    fontWeight: '600',
-  },
-  teamName: {
-    fontSize: 13,
-    color: '#757575',
-  },
-  disabledCard: {
-    opacity: 0.5,
-  },
-  checkboxDisabled: {
-    borderColor: '#BDBDBD',
-  },
-  disabledText: {
-    color: '#BDBDBD',
-  },
+
+  checkboxContainer: { marginRight: 12 },
+  // [수정] 체크박스 테두리 제거
+  checkbox: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.3)' },
+  // checkbox: { ..., borderWidth: 2, borderColor: '#555555', backgroundColor: 'transparent' }, // [삭제됨]
+  checkboxSelected: { backgroundColor: '#7896AA' },
+  // checkboxSelected: { ..., borderColor: '#7896AA' }, // [삭제됨]
+  checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
+  playerInfo: { flex: 1 },
+  playerHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  playerName: { fontSize: 16, fontWeight: 'bold', color: '#000000', marginRight: 8 },
+  backNumber: { fontSize: 14, color: '#333333', fontWeight: '600' },
+  teamName: { fontSize: 13, color: '#444444' },
+  disabledCardContainer: { opacity: 0.5 },
+  checkboxDisabled: { backgroundColor: 'rgba(0, 0, 0, 0.1)' }, // [수정] 비활성 체크박스 배경색 변경
+  // checkboxDisabled: { borderColor: '#999999' }, // [삭제됨]
+  disabledText: { color: '#666666' },
 });

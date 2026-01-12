@@ -165,6 +165,7 @@ def get_players_by_position_mysql(request):
                     continue  # 매핑되지 않은 포지션은 스킵
                 
                 # 포지션_영문 컬럼이 있는지 확인 후 쿼리 실행
+                # 도루 대신 득점(R) 사용
                 cursor.execute("""
                     SELECT 
                         h.`순위`, 
@@ -183,7 +184,8 @@ def get_players_by_position_mysql(request):
                         h.`TB`, 
                         h.`RBI`, 
                         h.`SAC`, 
-                        h.`SF`
+                        h.`SF`,
+                        COALESCE(h.`R`, 0) AS `R`
                     FROM `kbo_hitters_top150` h
                     INNER JOIN `kbo_defense_positions` d 
                         ON h.`선수명` = d.`선수명` 
@@ -205,7 +207,7 @@ def get_players_by_position_mysql(request):
                     'batting_average': float(p['AVG']) if p['AVG'] else 0,
                     'rbis': int(p['RBI']) if p['RBI'] else 0,
                     'home_runs': int(p['HR']) if p['HR'] else 0,
-                    'stolen_bases': 0,  # 크롤링 데이터에 도루 정보 없음
+                    'stolen_bases': int(p['R']) if p['R'] is not None else 0,  # 도루 대신 득점(R) 사용
                 }
                 for idx, p in enumerate(position_players)
             ]

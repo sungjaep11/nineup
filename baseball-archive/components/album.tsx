@@ -1,3 +1,4 @@
+import { BlurView } from 'expo-blur';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -5,6 +6,7 @@ import {
     FlatList,
     Image,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -168,30 +170,37 @@ export default function Album({ selectedPlayers }: AlbumProps) {
                         {Object.entries(selectedPlayers).map(([position, player]) => {
                             if (!player) return null;
                             const isSelected = filteredPlayerName === player.name;
+                            const blurIntensity = Platform.OS === 'android' ? 30 : 20;
                             return (
                                 <TouchableOpacity
                                     key={position}
-                                    style={[
-                                        styles.playerChip,
-                                        isSelected && styles.playerChipSelected
-                                    ]}
+                                    style={styles.playerChipContainer}
                                     onPress={() => handlePlayerChipClick(player.name)}
-                                    activeOpacity={0.7}
+                                    activeOpacity={0.8}
                                 >
-                                    <View style={styles.chipContent}>
-                                        <Text style={[
-                                            styles.chipPosition,
-                                            isSelected && styles.chipPositionSelected
-                                        ]}>
-                                            {POSITION_NAMES[position as PlayerPosition]}
-                                        </Text>
-                                        <Text style={[
-                                            styles.chipName,
-                                            isSelected && styles.chipNameSelected
-                                        ]}>
-                                            {player.name}
-                                        </Text>
-                                    </View>
+                                    <BlurView
+                                        intensity={blurIntensity}
+                                        tint="light"
+                                        style={[
+                                            styles.playerChip,
+                                            isSelected && styles.playerChipSelected
+                                        ]}
+                                    >
+                                        <View style={styles.chipContent}>
+                                            <Text style={[
+                                                styles.chipPosition,
+                                                isSelected && styles.chipPositionSelected
+                                            ]}>
+                                                {POSITION_NAMES[position as PlayerPosition]}
+                                            </Text>
+                                            <Text style={[
+                                                styles.chipName,
+                                                isSelected && styles.chipNameSelected
+                                            ]}>
+                                                {player.name}
+                                            </Text>
+                                        </View>
+                                    </BlurView>
                                 </TouchableOpacity>
                             );
                         })}
@@ -363,13 +372,11 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
     },
-    // 선택된 선수 헤더 스타일
+    // 선택된 선수 헤더 스타일 - Glassmorphism 적용
     selectedPlayersHeader: {
-        backgroundColor: '#F0F4F7',
+        backgroundColor: 'transparent',
         paddingVertical: 12,
         paddingHorizontal: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(100, 130, 150, 0.2)',
     },
     playerChipsContainer: {
         flexGrow: 0,
@@ -377,27 +384,19 @@ const styles = StyleSheet.create({
     playerChipsContent: {
         paddingVertical: 4,
     },
-    playerChip: {
-        backgroundColor: '#F0F4F7',
-        borderRadius: 12,
+    playerChipContainer: {
         marginRight: 12,
+        borderRadius: 12,
+    },
+    playerChip: {
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        borderRadius: 12,
         paddingVertical: 10,
         paddingHorizontal: 16,
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-        borderWidth: 1,
-        borderColor: '#E0E0E0',
+        overflow: 'hidden',
     },
     playerChipSelected: {
-        backgroundColor: '#7896AA',
-        borderColor: '#7896AA',
-        borderWidth: 2,
+        backgroundColor: 'rgba(120, 150, 170, 0.8)',
     },
     chipContent: {
         alignItems: 'center',
@@ -405,7 +404,7 @@ const styles = StyleSheet.create({
     chipPosition: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#7896AA',
+        color: '#333333',
         marginBottom: 4,
     },
     chipPositionSelected: {
@@ -414,7 +413,7 @@ const styles = StyleSheet.create({
     chipName: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#3D5566',
+        color: '#000000',
         marginBottom: 2,
     },
     chipNameSelected: {

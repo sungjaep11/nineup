@@ -22,7 +22,7 @@ interface TeamStats {
   battingAvg: number; // 타율
   rbis: number; // 타점
   homeRuns: number; // 홈런
-  stolenBases: number; // 도루
+  runs: number; // 득점
   
   // 투수 통계
   era: number; // 평균자책점
@@ -66,7 +66,7 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
       battingAvg: 0,
       rbis: 0,
       homeRuns: 0,
-      stolenBases: 0,
+      runs: 0,
       era: 0,
       wins: 0,
       losses: 0,
@@ -80,12 +80,12 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
       const totalAvg = batters.reduce((sum, p) => sum + (p.batting_average || 0), 0);
       const totalRbis = batters.reduce((sum, p) => sum + (p.rbis || 0), 0);
       const totalHr = batters.reduce((sum, p) => sum + (p.home_runs || 0), 0);
-      const totalSb = batters.reduce((sum, p) => sum + (p.stolen_bases || 0), 0);
+      const totalRuns = batters.reduce((sum, p) => sum + (p.stolen_bases || 0), 0); // 백엔드에서 득점을 stolen_bases로 매핑
 
       stats.battingAvg = totalAvg / batters.length;
       stats.rbis = totalRbis / batters.length;
       stats.homeRuns = totalHr / batters.length;
-      stats.stolenBases = totalSb / batters.length;
+      stats.runs = totalRuns / batters.length;
     }
 
     if (pitchers.length > 0) {
@@ -116,8 +116,8 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
     // 정확도: 타율 기준 (0-0.400을 0-100으로 변환)
     const accuracy = Math.min(100, (teamStats.battingAvg / 0.400) * 100);
 
-    // 주루: 도루 기준 (0-50개를 0-100으로 변환)
-    const running = Math.min(100, (teamStats.stolenBases / 50) * 100);
+    // 득점력: 득점 기준 (0-100점을 0-100으로 변환)
+    const scoring = Math.min(100, (teamStats.runs / 100) * 100);
 
     // 수비: 타율과 홈런 기반 (간단한 계산)
     const defense = (accuracy * 0.6 + power * 0.4);
@@ -130,7 +130,7 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
     return {
       power: Math.round(power),
       accuracy: Math.round(accuracy),
-      running: Math.round(running),
+      running: Math.round(scoring),
       defense: Math.round(defense),
       pitching: Math.round(pitching),
     };
@@ -158,23 +158,23 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
     const traits: string[] = [];
     
     if (power >= 70) {
-      traits.push('거포');
+      traits.push('장타력이 좋은');
     }
     if (running >= 70) {
-      traits.push('주루');
+      traits.push('득점력이 좋은');
     }
     if (accuracy >= 70 && power >= 60) {
-      traits.push('타격');
+      traits.push('타격 능력이 좋은');
     }
     if (pitching >= 70) {
-      traits.push('투수');
+      traits.push('투수 자원이 좋은');
     }
     if (defense >= 70) {
-      traits.push('수비');
+      traits.push('수비 안정감이 있는');
     }
     
     if (traits.length === 0) {
-      return '균형잡힌';
+      return '균형 잡힌';
     }
     
     return traits.join('·');
@@ -193,6 +193,39 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
     }
   }, [expectedWinRate]);
 
+  // 예상 순위 계산 (KBO는 10개 팀)
+  const expectedRank = useMemo(() => {
+    // 예상 승률을 기준으로 순위 계산
+    // 승률이 높을수록 순위가 높음 (1위가 최고)
+    // 예상 승률 0.7 -> 1위
+    // 예상 승률 0.6 -> 2-3위
+    // 예상 승률 0.5 -> 5-6위
+    // 예상 승률 0.4 -> 8-9위
+    // 예상 승률 0.3 -> 10위
+    
+    if (expectedWinRate >= 0.650) {
+      return 1;
+    } else if (expectedWinRate >= 0.600) {
+      return 2;
+    } else if (expectedWinRate >= 0.550) {
+      return 3;
+    } else if (expectedWinRate >= 0.525) {
+      return 4;
+    } else if (expectedWinRate >= 0.500) {
+      return 5;
+    } else if (expectedWinRate >= 0.475) {
+      return 6;
+    } else if (expectedWinRate >= 0.450) {
+      return 7;
+    } else if (expectedWinRate >= 0.400) {
+      return 8;
+    } else if (expectedWinRate >= 0.350) {
+      return 9;
+    } else {
+      return 10;
+    }
+  }, [expectedWinRate]);
+
   // 최적 타순 계산
   const optimalLineup = useMemo(() => {
     if (batters.length === 0) return [];
@@ -202,14 +235,14 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
       const avg = player.batting_average || 0;
       const hr = player.home_runs || 0;
       const rbi = player.rbis || 0;
-      const sb = player.stolen_bases || 0;
+      const runs = player.stolen_bases || 0; // 백엔드에서 득점을 stolen_bases로 매핑
 
       // 타순별 적합도 점수 계산
       const scores = {
-        // 1번: 출루율 + 주루 능력 (타율 + 도루)
-        leadoff: avg * 100 + sb * 2,
-        // 2번: 출루율 + 약간의 주루 (타율 중심)
-        second: avg * 120 + sb * 1,
+        // 1번: 출루율 + 득점력 (타율 + 득점)
+        leadoff: avg * 100 + runs * 2,
+        // 2번: 출루율 + 약간의 득점력 (타율 중심)
+        second: avg * 120 + runs * 1,
         // 3번: 가장 높은 타율
         third: avg * 150,
         // 4번: 홈런 + 타점 (거포)
@@ -229,7 +262,7 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
     const lineup: (Player | null)[] = [null, null, null, null, null, null, null, null, null];
     const used = new Set<number>();
 
-    // 1번: 출루율 + 주루 능력이 높은 선수
+    // 1번: 출루율 + 득점력이 높은 선수
     const leadoff = playersWithScores
       .filter(p => !used.has(p.player.id))
       .sort((a, b) => b.scores.leadoff - a.scores.leadoff)[0];
@@ -357,7 +390,7 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
             const rad = (angle * Math.PI) / 180;
             const x = center + radius * Math.cos(rad);
             const y = center - radius * Math.sin(rad);
-            const labels = ['파워', '정확도', '주루', '수비', '투수력'];
+            const labels = ['파워', '정확도', '득점력', '수비', '투수력'];
             const labelX = center + (radius + 20) * Math.cos(rad);
             const labelY = center - (radius + 20) * Math.sin(rad);
             
@@ -419,8 +452,8 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
             <Text style={styles.statValue}>{teamStats.homeRuns.toFixed(1)}</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>도루</Text>
-            <Text style={styles.statValue}>{teamStats.stolenBases.toFixed(1)}</Text>
+            <Text style={styles.statLabel}>득점</Text>
+            <Text style={styles.statValue}>{teamStats.runs.toFixed(1)}</Text>
           </View>
         </View>
       </View>
@@ -512,8 +545,8 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
                   <Text style={styles.lineupPlayerStats}>
                     타율 {(player.batting_average || 0).toFixed(3)} | 
                     홈런 {player.home_runs || 0} | 
-                    타점 {player.rbis || 0}
-                    {(player.stolen_bases || 0) > 0 && ` | 도루 ${player.stolen_bases}`}
+                    타점 {player.rbis || 0} | 
+                    득점 {player.stolen_bases || 0}
                   </Text>
                 </View>
               </View>
@@ -534,13 +567,16 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
       </View>
 
       {/* 예상 승률 */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>예상 승률</Text>
-        <View style={styles.winRateContainer}>
-          <Text style={styles.winRateValue}>{(expectedWinRate * 100).toFixed(1)}%</Text>
-          <Text style={styles.winRateMessage}>{winRateMessage}</Text>
+      {hasData && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>예상 승률</Text>
+          <View style={styles.winRateContainer}>
+            <Text style={styles.winRateValue}>{(expectedWinRate * 100).toFixed(1)}%</Text>
+            <Text style={styles.winRateMessage}>{winRateMessage}</Text>
+          </View>
+          <Text style={styles.rankText}>예상 순위: {expectedRank}위</Text>
         </View>
-      </View>
+      )}
     </ScrollView>
   );
 }
@@ -662,6 +698,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#424242',
     textAlign: 'center',
+  },
+  rankText: {
+    fontSize: 24,
+    color: '#7896AA',
+    textAlign: 'center',
+    marginTop: 20,
+    fontWeight: 'bold',
   },
   lineupContainer: {
     backgroundColor: '#FFFFFF',
