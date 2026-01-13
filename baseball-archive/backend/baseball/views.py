@@ -184,12 +184,17 @@ def get_players_by_position_mysql(request):
             if db_position == 'P':
                 continue  # 투수는 이미 처리함
             
+            # 영문 포지션을 한글 포지션으로 변환 (DB의 POS 컬럼이 한글일 수 있음)
+            # POSITION_KR_TO_EN의 역매핑 생성
+            position_en_to_kr = {v: k for k, v in POSITION_KR_TO_EN.items()}
+            position_kr = position_en_to_kr.get(db_position)
+            
+            if not position_kr:
+                continue  # 매핑되지 않은 포지션은 스킵
+            
             with connection.cursor() as cursor:
                 # INNER JOIN 사용: 포지션 정보가 있는 선수만 가져오기
-                # d.POS는 영문 포지션(C, 1B 등)이므로 db_position을 그대로 사용
-                # db_position은 이미 영문 포지션 (C, 1B, 2B 등)
-                
-                # 포지션_영문 컬럼이 있는지 확인 후 쿼리 실행
+                # d.POS는 한글 포지션(포수, 1루수 등)이므로 position_kr을 사용
                 # 도루 대신 득점(R) 사용
                 cursor.execute("""
                     SELECT 
@@ -218,7 +223,7 @@ def get_players_by_position_mysql(request):
                         AND h.`팀명` = d.`팀명`
                     WHERE d.`POS` = %s
                     ORDER BY h.`TB` DESC
-                """, [db_position])
+                """, [position_kr])
                 columns = [col[0] for col in cursor.description]
                 position_players = [dict(zip(columns, row)) for row in cursor.fetchall()]
             
