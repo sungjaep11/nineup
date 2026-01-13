@@ -24,6 +24,10 @@ interface TeamStats {
   rbis: number; // 타점
   homeRuns: number; // 홈런
   runs: number; // 득점
+  fieldingPercentage: number; // 수비율
+  totalBases: number; // 총 루타
+  hits: number; // 안타
+  atBats: number; // 타수
   
   // 투수 통계
   era: number; // 평균자책점
@@ -68,6 +72,10 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
       rbis: 0,
       homeRuns: 0,
       runs: 0,
+      fieldingPercentage: 0,
+      totalBases: 0,
+      hits: 0,
+      atBats: 0,
       era: 0,
       wins: 0,
       losses: 0,
@@ -82,11 +90,19 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
       const totalRbis = batters.reduce((sum, p) => sum + (p.rbis || 0), 0);
       const totalHr = batters.reduce((sum, p) => sum + (p.home_runs || 0), 0);
       const totalRuns = batters.reduce((sum, p) => sum + (p.stolen_bases || 0), 0); // 백엔드에서 득점을 stolen_bases로 매핑
+      const totalFpct = batters.reduce((sum, p) => sum + (p.fielding_percentage || 0), 0);
+      const totalTB = batters.reduce((sum, p) => sum + (p.total_bases || 0), 0);
+      const totalH = batters.reduce((sum, p) => sum + (p.hits || 0), 0);
+      const totalAB = batters.reduce((sum, p) => sum + (p.at_bats || 0), 0);
 
       stats.battingAvg = totalAvg / batters.length;
       stats.rbis = totalRbis / batters.length;
       stats.homeRuns = totalHr / batters.length;
       stats.runs = totalRuns / batters.length;
+      stats.fieldingPercentage = totalFpct / batters.length;
+      stats.totalBases = totalTB;
+      stats.hits = totalH;
+      stats.atBats = totalAB;
     }
 
     if (pitchers.length > 0) {
@@ -111,8 +127,12 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
 
   // 팀 능력치 계산 (0-100 스케일)
   const teamAbilities = useMemo((): TeamAbilities => {
-    // 파워: 홈런 기준 (0-60개를 0-100으로 변환)
-    const power = Math.min(100, (teamStats.homeRuns / 60) * 100);
+    // 파워: (TB-H)/AB 기준 (장타율의 일종, 안타를 제외한 추가 루타율)
+    // (TB-H)/AB 범위: 0-0.350을 0-100으로 변환
+    const tbMinusH = teamStats.totalBases - teamStats.hits;
+    const power = (teamStats.atBats > 0)
+      ? Math.min(100, ((tbMinusH / teamStats.atBats) / 0.350) * 100)
+      : Math.min(100, (teamStats.homeRuns / 60) * 100); // 폴백: 홈런 기준
 
     // 정확도: 타율 기준 (0-0.400을 0-100으로 변환)
     const accuracy = Math.min(100, (teamStats.battingAvg / 0.400) * 100);
@@ -120,8 +140,10 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
     // 득점력: 득점 기준 (0-100점을 0-100으로 변환)
     const scoring = Math.min(100, (teamStats.runs / 100) * 100);
 
-    // 수비: 타율과 홈런 기반 (간단한 계산)
-    const defense = (accuracy * 0.6 + power * 0.4);
+    // 수비: 수비율 기준 (0.850-1.000을 0-100으로 변환, 완화된 범위)
+    const defense = teamStats.fieldingPercentage > 0
+      ? Math.max(0, Math.min(100, ((teamStats.fieldingPercentage - 0.850) / 0.150) * 100))
+      : (accuracy * 0.6 + power * 0.4); // 수비율 데이터가 없으면 기존 계산 사용
 
     // 투수력: ERA 기준 (0-6.0을 역으로 100-0으로 변환, 낮을수록 좋음)
     const pitching = teamStats.era > 0 

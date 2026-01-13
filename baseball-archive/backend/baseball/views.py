@@ -132,6 +132,31 @@ def get_players_by_position_mysql(request):
             columns = [col[0] for col in cursor.description]
             pitchers = [dict(zip(columns, row)) for row in cursor.fetchall()]
             
+            # IP 문자열을 소수점으로 변환하는 함수
+            def parse_ip(ip_str):
+                """'180 2/3' 형식의 IP를 소수점으로 변환"""
+                if not ip_str:
+                    return 0.0
+                try:
+                    ip_str = str(ip_str).strip()
+                    # 공백으로 분리
+                    parts = ip_str.split()
+                    if len(parts) == 1:
+                        # "80" 같은 경우
+                        return float(parts[0])
+                    elif len(parts) == 2:
+                        # "47 2/3" 같은 경우
+                        whole = float(parts[0])
+                        fraction = parts[1]
+                        if '/' in fraction:
+                            num, den = map(int, fraction.split('/'))
+                            return whole + (num / den)
+                        return whole
+                    else:
+                        return float(ip_str)
+                except (ValueError, AttributeError):
+                    return 0.0
+            
             # 프론트엔드 형식으로 변환
             result['pitcher'] = [
                 {
@@ -147,6 +172,8 @@ def get_players_by_position_mysql(request):
                     'saves': int(p['SV']) if p['SV'] else 0,
                     'strikeouts': int(p['SO']) if p['SO'] else 0,
                     'whip': float(p['WHIP']) if p['WHIP'] else 0,
+                    'innings_pitched': parse_ip(p.get('IP')),
+                    'walks': int(p['BB']) if p.get('BB') is not None else 0,
                 }
                 for idx, p in enumerate(pitchers)
             ]
@@ -171,7 +198,7 @@ def get_players_by_position_mysql(request):
                         h.`순위`, 
                         h.`선수명`, 
                         h.`팀명`, 
-                        d.`포지션` AS `포지션_한글`,
+                        d.`POS` AS `포지션_한글`,
                         h.`AVG`, 
                         h.`G`, 
                         h.`PA`, 
@@ -185,12 +212,13 @@ def get_players_by_position_mysql(request):
                         h.`RBI`, 
                         h.`SAC`, 
                         h.`SF`,
-                        COALESCE(h.`R`, 0) AS `R`
+                        COALESCE(h.`R`, 0) AS `R`,
+                        d.`FPCT` AS `수비율`
                     FROM `kbo_hitters_top150` h
                     INNER JOIN `kbo_defense_positions` d 
                         ON h.`선수명` = d.`선수명` 
                         AND h.`팀명` = d.`팀명`
-                    WHERE d.`포지션` = %s
+                    WHERE d.`POS` = %s
                     ORDER BY h.`TB` DESC
                 """, [position_kr])
                 columns = [col[0] for col in cursor.description]
@@ -208,6 +236,10 @@ def get_players_by_position_mysql(request):
                     'rbis': int(p['RBI']) if p['RBI'] else 0,
                     'home_runs': int(p['HR']) if p['HR'] else 0,
                     'stolen_bases': int(p['R']) if p['R'] is not None else 0,  # 도루 대신 득점(R) 사용
+                    'fielding_percentage': float(p['수비율']) if p.get('수비율') is not None and p.get('수비율') != '' else None,
+                    'at_bats': int(p['AB']) if p.get('AB') is not None else 0,
+                    'total_bases': int(p['TB']) if p.get('TB') is not None else 0,
+                    'hits': int(p['H']) if p.get('H') is not None else 0,
                 }
                 for idx, p in enumerate(position_players)
             ]
