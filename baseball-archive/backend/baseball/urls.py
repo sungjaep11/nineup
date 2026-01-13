@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import PlayerViewSet, get_players_by_position_mysql, get_player_images
+from .views import PlayerViewSet, get_players_by_position_mysql, get_player_images, get_hitter_recent_games
 
 router = DefaultRouter()
 router.register(r'players', PlayerViewSet)
@@ -10,4 +10,6 @@ urlpatterns = [
     path('mysql-players/', get_players_by_position_mysql, name='mysql-players'),
     # 선수 이미지 목록 API
     path('player-images/', get_player_images, name='player-images'),
+    # 타자 최근 경기 기록 API
+    path('hitter-recent-games/', get_hitter_recent_games, name='hitter-recent-games'),
 ] + router.urls

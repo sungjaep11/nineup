@@ -257,6 +257,69 @@ def get_players_by_position_mysql(request):
 
 
 @api_view(['GET'])
+def get_hitter_recent_games(request):
+    """
+    타자 최근 경기 기록 가져오기
+    GET /api/hitter-recent-games/?player_name=양의지
+    
+    Query Parameters:
+        player_name: 선수 이름
+    
+    Returns:
+    [
+      {
+        "일자": "09.04",
+        "상대": "NC",
+        "H": "4",
+        "AB": "5",
+        "AVG": "0.800",
+        ...
+      },
+      ...
+    ]
+    """
+    try:
+        from config.db_config import DB_CONFIG
+        
+        player_name = request.query_params.get('player_name')
+        
+        if not player_name:
+            return Response(
+                {'error': 'player_name 파라미터가 필요합니다.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        print(f"🔍 요청된 선수: {player_name}")
+        
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        
+        try:
+            cursor.execute("""
+                SELECT 
+                    `일자`, `상대`, `AVG`, `PA`, `AB`, `R`, `H`, 
+                    `2B`, `3B`, `HR`, `RBI`, `SB`, `CS`, `BB`, `HBP`, `SO`, `GDP`
+                FROM `hitter_recent_games_log`
+                WHERE `선수명` = %s
+                ORDER BY `일자` ASC
+            """, (player_name,))
+            
+            games = cursor.fetchall()
+            print(f"✅ {player_name}의 최근 {len(games)}경기 데이터 조회 완료")
+            
+            return Response(games, status=status.HTTP_200_OK)
+        finally:
+            conn.close()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response(
+            {'error': str(e), 'detail': '최근 경기 데이터 조회 중 오류가 발생했습니다.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
 def get_player_images(request):
     """
     선수 이미지 목록 가져오기 (S3 URL 사용)

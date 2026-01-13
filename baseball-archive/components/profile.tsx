@@ -9,10 +9,12 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
-import Svg, { G, Path, Text as SvgText } from 'react-native-svg';
-import { API_URL } from '../config/api';
+import Svg, { G, Path, Text as SvgText, Rect, Line, Circle } from 'react-native-svg';
+import { API_URL, API_ENDPOINTS, API_HEADERS } from '../config/api';
 import { Player } from '../types/player';
+import { getTeamColors, addOpacity } from '../constants/teamColors';
 
 const { width } = Dimensions.get('window');
 
@@ -75,10 +77,22 @@ interface PlayerAbilities {
   isPitcher: boolean; // 투수 여부
 }
 
+interface RecentGameData {
+  일자: string;
+  상대: string;
+  H: string;
+  AB: string;
+  AVG: string;
+}
+
 export default function Profile({ player, visible, onClose }: ProfileProps) {
   // 프로필 이미지 URL 상태
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
+  
+  // 최근 경기 데이터 상태
+  const [recentGames, setRecentGames] = useState<RecentGameData[]>([]);
+  const [gamesLoading, setGamesLoading] = useState(false);
 
   // 프로필 이미지 가져오기
   useEffect(() => {
@@ -116,6 +130,40 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
     };
 
     fetchProfileImage();
+  }, [player, visible]);
+
+  // 최근 경기 데이터 가져오기 (타자만)
+  useEffect(() => {
+    if (!player || !visible || player.batting_average === undefined) {
+      setRecentGames([]);
+      return;
+    }
+
+    const fetchRecentGames = async () => {
+      try {
+        setGamesLoading(true);
+        const url = API_ENDPOINTS.hitterRecentGames(player.name);
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: API_HEADERS,
+        });
+
+        if (!response.ok) {
+          console.log('최근 경기 데이터 API 응답 오류:', response.status);
+          return;
+        }
+
+        const data = await response.json();
+        setRecentGames(data);
+      } catch (error) {
+        console.error('최근 경기 데이터 로드 실패:', error);
+        setRecentGames([]);
+      } finally {
+        setGamesLoading(false);
+      }
+    };
+
+    fetchRecentGames();
   }, [player, visible]);
 
   // 선수 능력치 계산
@@ -306,6 +354,283 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
     );
   };
 
+  // 최근 성적 변화 추이 그래프 컴포넌트
+  const RecentPerformanceChart = () => {
+    const [visibleBars, setVisibleBars] = useState(0);
+    const [visibleLines, setVisibleLines] = useState(0);
+    const [barHeights, setBarHeights] = useState<number[]>([]);
+
+    if (gamesLoading) {
+      return (
+        <View style={styles.chartLoadingContainer}>
+          <ActivityIndicator size="small" color="#7896AA" />
+        </View>
+      );
+    }
+
+    if (recentGames.length === 0) {
+      return null;
+    }
+
+    const chartWidth = width * 0.8;
+    const chartHeight = 200;
+    const padding = 40;
+    const chartInnerWidth = chartWidth - padding * 2;
+    const chartInnerHeight = chartHeight - padding * 2;
+
+    // 데이터 처리
+    const processedData = recentGames.map(game => {
+      const h = parseInt(game.H || '0', 10);
+      const ab = parseInt(game.AB || '0', 10);
+      const avg = ab > 0 ? h / ab : 0;
+      return {
+        date: game.일자,
+        hits: h,
+        avg: avg,
+      };
+    });
+
+    // 최대값 계산 (Y축 스케일링용)
+    const maxHits = Math.max(...processedData.map(d => d.hits), 1);
+    const maxAvg = Math.max(...processedData.map(d => d.avg), 0.1);
+
+    // 애니메이션 효과: 순차적으로 표시
+    useEffect(() => {
+      setVisibleBars(0);
+      setVisibleLines(0);
+      setBarHeights(new Array(processedData.length).fill(0));
+      
+      // 막대 그래프 순차 표시 및 높이 증가 애니메이션
+      processedData.forEach((data, index) => {
+        const fullHeight = (data.hits / maxHits) * chartInnerHeight;
+        const delay = index * 150;
+        
+        setTimeout(() => {
+          setVisibleBars(prev => prev + 1);
+          
+          // 막대 높이를 점진적으로 증가
+          const steps = 20;
+          const stepHeight = fullHeight / steps;
+          let currentStep = 0;
+          
+          const heightInterval = setInterval(() => {
+            currentStep++;
+            setBarHeights(prev => {
+              const newHeights = [...prev];
+              newHeights[index] = stepHeight * currentStep;
+              return newHeights;
+            });
+            
+            if (currentStep >= steps) {
+              clearInterval(heightInterval);
+            }
+          }, 20); // 20ms마다 증가 (총 400ms)
+        }, delay);
+      });
+      
+      // 꺾은선 그래프 순차 표시 (날짜 순서대로)
+      const lineInterval = setInterval(() => {
+        setVisibleLines(prev => {
+          if (prev < processedData.length) {
+            return prev + 1;
+          }
+          clearInterval(lineInterval);
+          return prev;
+        });
+      }, 200);
+      
+      return () => {
+        // cleanup은 각 setTimeout과 setInterval이 자체적으로 처리
+      };
+    }, [processedData.length, maxHits, chartInnerHeight]);
+
+    // 타율 증가 여부 판단 (최근 3경기 평균 vs 이전 3경기 평균)
+    let isAvgIncreasing = false;
+    if (processedData.length >= 6) {
+      const recent3 = processedData.slice(-3);
+      const previous3 = processedData.slice(-6, -3);
+      const recentAvg = recent3.reduce((sum, d) => sum + d.avg, 0) / 3;
+      const previousAvg = previous3.reduce((sum, d) => sum + d.avg, 0) / 3;
+      isAvgIncreasing = recentAvg > previousAvg;
+    } else if (processedData.length >= 2) {
+      const recent2 = processedData.slice(-2);
+      const previous2 = processedData.slice(-4, -2);
+      if (previous2.length > 0) {
+        const recentAvg = recent2.reduce((sum, d) => sum + d.avg, 0) / recent2.length;
+        const previousAvg = previous2.reduce((sum, d) => sum + d.avg, 0) / previous2.length;
+        isAvgIncreasing = recentAvg > previousAvg;
+      }
+    }
+
+    // 구단 색상 가져오기
+    const teamColors = getTeamColors(player?.team);
+    const barColor = addOpacity(teamColors.primary, 0.6);
+    const lineColor = teamColors.secondary;
+
+    // 좌표 계산 함수
+    const getX = (index: number) => padding + (index / (processedData.length - 1 || 1)) * chartInnerWidth;
+    const getYForHits = (hits: number) => padding + chartInnerHeight - (hits / maxHits) * chartInnerHeight;
+    const getYForAvg = (avg: number) => padding + chartInnerHeight - (avg / maxAvg) * chartInnerHeight;
+
+    return (
+      <View style={styles.recentChartContainer}>
+        <Text style={styles.recentChartTitle}>최근 성적 변화 추이</Text>
+        <View style={styles.chartWrapper}>
+          <Svg width={chartWidth} height={chartHeight}>
+            {/* 범례 (오른쪽 상단, 가로 배치) */}
+            <G>
+              {/* 막대 그래프 범례 */}
+              <Rect
+                x={chartWidth - 155}
+                y={8}
+                width={12}
+                height={12}
+                fill={barColor}
+                rx={2}
+              />
+              <SvgText
+                x={chartWidth - 140}
+                y={18}
+                fontSize="9"
+                fill="#666666"
+              >
+                안타 수(H)
+              </SvgText>
+              
+              {/* 꺾은선 그래프 범례 */}
+              <Line
+                x1={chartWidth - 85}
+                y1={14}
+                x2={chartWidth - 73}
+                y2={14}
+                stroke={lineColor}
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <Circle
+                cx={chartWidth - 79}
+                cy={14}
+                r={3}
+                fill={lineColor}
+              />
+              <SvgText
+                x={chartWidth - 70}
+                y={18}
+                fontSize="9"
+                fill="#666666"
+              >
+                일별 타율(H/AB)
+              </SvgText>
+            </G>
+            {/* Y축 그리드선 (안타 수 기준) */}
+            {[0, 0.25, 0.5, 0.75, 1.0].map(scale => {
+              const y = padding + chartInnerHeight - scale * chartInnerHeight;
+              return (
+                <Line
+                  key={`grid-${scale}`}
+                  x1={padding}
+                  y1={y}
+                  x2={padding + chartInnerWidth}
+                  y2={y}
+                  stroke="#E0E0E0"
+                  strokeWidth="1"
+                  opacity={0.3}
+                />
+              );
+            })}
+
+            {/* 막대 그래프 (안타 수) - 아래에서 위로 증가 애니메이션 */}
+            {processedData.map((data, index) => {
+              if (index >= visibleBars) return null;
+              
+              const x = getX(index);
+              const barWidth = chartInnerWidth / processedData.length * 0.6;
+              const barX = x - barWidth / 2;
+              const fullBarHeight = (data.hits / maxHits) * chartInnerHeight;
+              const currentBarHeight = barHeights[index] || 0;
+              const barY = padding + chartInnerHeight - currentBarHeight;
+              
+              return (
+                <Rect
+                  key={`bar-${index}`}
+                  x={barX}
+                  y={barY}
+                  width={barWidth}
+                  height={currentBarHeight}
+                  fill={barColor}
+                  rx={4}
+                />
+              );
+            })}
+
+            {/* 꺾은선 그래프 (타율) - 날짜 순서대로 순차 표시 */}
+            {processedData.length > 1 && processedData.map((data, index) => {
+              if (index === 0 || index > visibleLines) return null;
+              
+              const x1 = getX(index - 1);
+              const y1 = getYForAvg(processedData[index - 1].avg);
+              const x2 = getX(index);
+              const y2 = getYForAvg(data.avg);
+              
+              return (
+                <Line
+                  key={`line-${index}`}
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke={lineColor}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+              );
+            })}
+
+            {/* 타율 점 - 순차적으로 나타남 */}
+            {processedData.map((data, index) => {
+              if (index >= visibleLines) return null;
+              
+              const x = getX(index);
+              const y = getYForAvg(data.avg);
+              
+              return (
+                <Circle
+                  key={`dot-${index}`}
+                  cx={x}
+                  cy={y}
+                  r={4}
+                  fill={lineColor}
+                />
+              );
+            })}
+
+            {/* X축 라벨 (일자) */}
+            {processedData.map((data, index) => {
+              const x = getX(index);
+              return (
+                <SvgText
+                  key={`label-${index}`}
+                  x={x}
+                  y={chartHeight - 10}
+                  fontSize="10"
+                  fill="#666666"
+                  textAnchor="middle"
+                >
+                  {data.date}
+                </SvgText>
+              );
+            })}
+          </Svg>
+        </View>
+        
+        {/* 타율 증가 멘트 */}
+        {isAvgIncreasing && (
+          <Text style={styles.avgIncreaseMessage}>최근 타격감이 올라오고 있어요!</Text>
+        )}
+      </View>
+    );
+  };
+
   if (!player) return null;
 
   const blurIntensity = Platform.OS === 'android' ? 50 : 30;
@@ -383,6 +708,11 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
                 <Text style={styles.playerTeam}>{player.team}</Text>
               )}
             </View>
+
+            {/* 최근 성적 변화 추이 그래프 (타자만) */}
+            {player.batting_average !== undefined && (
+              <RecentPerformanceChart />
+            )}
 
             {/* 통계 섹션 */}
             <View style={styles.statsSection}>
@@ -527,7 +857,7 @@ const styles = StyleSheet.create({
   },
   playerInfo: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 48,
     marginBottom: 16,
   },
   playerName: {
@@ -553,30 +883,31 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 16,
-    padding: 12,
+    padding: 8,
     marginBottom: 16,
   },
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.2)',
   },
   statLabel: {
-    fontSize: 17,
+    fontSize: 14,
     color: '#333333',
     fontWeight: '500',
   },
   statValue: {
-    fontSize: 19,
+    fontSize: 16,
     color: '#000000',
     fontWeight: 'bold',
   },
   chartSection: {
     alignItems: 'center',
     width: '100%',
+    marginTop: -40,
   },
   chartTitle: {
     fontSize: 20,
@@ -588,5 +919,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 12,
+  },
+  recentChartContainer: {
+    width: '100%',
+    marginTop: 16,
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  recentChartTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  chartWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  chartLoadingContainer: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avgIncreaseMessage: {
+    fontSize: 13,
+    color: '#4CAF50',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });
