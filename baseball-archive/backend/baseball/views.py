@@ -2,8 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from django.db import connection
-from django.conf import settings
-import os
+import pymysql
 from .models import Player
 from .serializers import PlayerSerializer
 
@@ -225,104 +224,90 @@ def get_players_by_position_mysql(request):
 @api_view(['GET'])
 def get_player_images(request):
     """
-    선수 이미지 목록 가져오기
-    GET /api/player-images/
+    선수 이미지 목록 가져오기 (S3 URL 사용)
+    GET /api/player-images/?names=류현진&names=김광현
+    
+    Query Parameters:
+        names: 선수 이름 목록 (여러 개 가능)
     
     Returns:
     [
       {
         "id": "1",
-        "playerName": "네일",
-        "position": "pitcher",
-        "playerId": 1,
-        "imageUrl": "http://10.0.2.2:8000/media/네일_1.jpg",
-        "fileName": "네일_1.jpg"
+        "playerName": "류현진",
+        "playerId": 1001,
+        "imageUrl": "https://s3...amazonaws.com/players/류현진_1.jpg",
+        "fileName": "류현진_1.jpg",
+        "imageType": "1"
       },
       ...
     ]
     """
     try:
-        player_images_dir = settings.MEDIA_ROOT
+        from config.db_config import DB_CONFIG
         
-        if not os.path.exists(player_images_dir):
-            return Response(
-                {'error': 'player_images 폴더가 없습니다.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        player_names = request.query_params.getlist('names')
         
-        # 모든 이미지 파일 찾기
-        image_files = []
-        player_names_from_files = set()
+        if not player_names:
+            return Response([], status=status.HTTP_200_OK)
         
-        # 먼저 모든 이미지 파일에서 선수 이름 추출
-        for filename in os.listdir(player_images_dir):
-            if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                player_name = filename.split('_')[0]
-                player_names_from_files.add(player_name)
+        print(f"🔍 요청된 선수들: {player_names}")
         
-        # DB에서 한 번에 모든 선수 정보 조회 (배치 처리)
-        player_info_map = {}  # {선수명: position}
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
         
-        if player_names_from_files:
-            with connection.cursor() as cursor:
-                # 투수 정보 일괄 조회
-                placeholders = ','.join(['%s'] * len(player_names_from_files))
-                cursor.execute(f"""
-                    SELECT DISTINCT `선수명`
-                    FROM `kbo_pitchers_top150`
-                    WHERE `선수명` IN ({placeholders})
-                """, list(player_names_from_files))
-                pitchers = {row[0] for row in cursor.fetchall()}
+        try:
+            placeholders = ','.join(['%s'] * len(player_names))
+            cursor.execute(f"""
+                SELECT 
+                    player_id,
+                    player_name,
+                    image_1,
+                    image_2,
+                    image_3,
+                    profile_img
+                FROM photo_data
+                WHERE player_name IN ({placeholders})
+            """, player_names)
+            
+            players = cursor.fetchall()
+            print(f"✅ DB에서 {len(players)}명의 선수 데이터 조회 완료")
+            
+            image_files = []
+            for player in players:
+                player_name = player.get('player_name')
+                player_id = player.get('player_id')
+                print(f"📋 처리 중: {player_name} (player_id: {player_id})")
                 
-                # 타자 정보 일괄 조회
-                cursor.execute(f"""
-                    SELECT DISTINCT h.`선수명`, d.`포지션`
-                    FROM `kbo_hitters_top150` h
-                    LEFT JOIN `kbo_defense_positions` d ON h.`선수명` = d.`선수명`
-                    WHERE h.`선수명` IN ({placeholders})
-                """, list(player_names_from_files))
+                image_types = [
+                    ('1', player.get('image_1')),
+                    ('2', player.get('image_2')),
+                    ('3', player.get('image_3')),
+                    ('profile', player.get('profile_img'))
+                ]
                 
-                # 한글 포지션을 프론트엔드 포지션으로 매핑
-                position_kr_to_en = {
-                    '포수': 'catcher',
-                    '1루수': 'first',
-                    '2루수': 'second',
-                    '유격수': 'shortstop',
-                    '3루수': 'third',
-                    '좌익수': 'left',
-                    '중견수': 'center',
-                    '우익수': 'right',
-                }
-                
-                for row in cursor.fetchall():
-                    player_name = row[0]
-                    db_position = row[1] if row[1] else None
-                    if db_position and db_position in position_kr_to_en:
-                        player_info_map[player_name] = position_kr_to_en[db_position]
-                
-                # 투수는 'pitcher'로 설정
-                for pitcher_name in pitchers:
-                    player_info_map[pitcher_name] = 'pitcher'
-        
-        # 이미지 파일과 선수 정보 매칭
-        for filename in os.listdir(player_images_dir):
-            if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                player_name = filename.split('_')[0]
-                position = player_info_map.get(player_name, None)
-                
-                image_files.append({
-                    'id': filename,
-                    'playerName': player_name,
-                    'fileName': filename,
-                    'imageUrl': f"{request.build_absolute_uri(settings.MEDIA_URL)}{filename}",
-                    'position': position,
-                    'playerId': None,
-                })
-        
-        return Response(image_files, status=status.HTTP_200_OK)
-    
+                for image_type, image_url in image_types:
+                    if image_url:
+                        image_files.append({
+                            'id': f"{player_name}_{image_type}",
+                            'playerName': player_name,
+                            'playerId': player_id,
+                            'imageUrl': image_url,
+                            'fileName': f"{player_name}_{image_type}.jpg",
+                            'imageType': image_type
+                        })
+                    else:
+                        print(f"   ⚠️ {image_type} 이미지 없음")
+            
+            print(f"📸 총 {len(image_files)}개의 이미지 반환")
+            
+            return Response(image_files, status=status.HTTP_200_OK)
+        finally:
+            conn.close()
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return Response(
-            {'error': str(e)},
+            {'error': str(e), 'detail': '이미지 API 처리 중 오류가 발생했습니다.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
