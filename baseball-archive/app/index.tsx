@@ -196,7 +196,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {startingPitcher && <View style={styles.nameTag}><Text style={styles.nameText}>{startingPitcher.name}</Text></View>}
-                        <Image source={startingPitcher ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
+                        <Image 
+                            source={startingPitcher ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} 
+                            style={[styles.playerIcon, !startingPitcher && styles.playerIconSilhouette]} 
+                            tintColor={!startingPitcher ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     {/* 불펜 투수 1 */}
                     <TouchableOpacity 
@@ -205,7 +209,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {reliefPitchers[0] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[0].name}</Text></View>}
-                        <Image source={reliefPitchers[0] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
+                        <Image 
+                            source={reliefPitchers[0] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} 
+                            style={[styles.playerIcon, !reliefPitchers[0] && styles.playerIconSilhouette]} 
+                            tintColor={!reliefPitchers[0] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     {/* 불펜 투수 2 */}
                     <TouchableOpacity 
@@ -214,7 +222,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {reliefPitchers[1] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[1].name}</Text></View>}
-                        <Image source={reliefPitchers[1] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
+                        <Image 
+                            source={reliefPitchers[1] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} 
+                            style={[styles.playerIcon, !reliefPitchers[1] && styles.playerIconSilhouette]} 
+                            tintColor={!reliefPitchers[1] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     {/* 불펜 투수 3 */}
                     <TouchableOpacity 
@@ -223,7 +235,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {reliefPitchers[2] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[2].name}</Text></View>}
-                        <Image source={reliefPitchers[2] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
+                        <Image 
+                            source={reliefPitchers[2] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} 
+                            style={[styles.playerIcon, !reliefPitchers[2] && styles.playerIconSilhouette]} 
+                            tintColor={!reliefPitchers[2] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     {/* 불펜 투수 4 */}
                     <TouchableOpacity 
@@ -232,7 +248,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {reliefPitchers[3] && <View style={styles.nameTag}><Text style={styles.nameText}>{reliefPitchers[3].name}</Text></View>}
-                        <Image source={reliefPitchers[3] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} style={styles.playerIcon} />
+                        <Image 
+                            source={reliefPitchers[3] ? require('../assets/images/player.png') : require('../assets/images/player-black.png')} 
+                            style={[styles.playerIcon, !reliefPitchers[3] && styles.playerIconSilhouette]} 
+                            tintColor={!reliefPitchers[3] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     <TouchableOpacity 
                         style={[styles.playerContainer, styles.catcher]}
@@ -240,7 +260,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {selectedPlayers['catcher'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['catcher'].name}</Text></View>}
-                        <Image source={getPlayerIcon('catcher')} style={styles.playerIcon} />
+                        <Image 
+                            source={getPlayerIcon('catcher')} 
+                            style={[styles.playerIcon, !selectedPlayers['catcher'] && styles.playerIconSilhouette]} 
+                            tintColor={!selectedPlayers['catcher'] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     <TouchableOpacity 
                         style={[styles.playerContainer, styles.firstBaseman]}
@@ -248,7 +272,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {selectedPlayers['first'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['first'].name}</Text></View>}
-                        <Image source={getPlayerIcon('first')} style={styles.playerIcon} />
+                        <Image 
+                            source={getPlayerIcon('first')} 
+                            style={[styles.playerIcon, !selectedPlayers['first'] && styles.playerIconSilhouette]} 
+                            tintColor={!selectedPlayers['first'] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     <TouchableOpacity 
                         style={[styles.playerContainer, styles.secondBaseman]}
@@ -256,7 +284,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {selectedPlayers['second'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['second'].name}</Text></View>}
-                        <Image source={getPlayerIcon('second')} style={styles.playerIcon} />
+                        <Image 
+                            source={getPlayerIcon('second')} 
+                            style={[styles.playerIcon, !selectedPlayers['second'] && styles.playerIconSilhouette]} 
+                            tintColor={!selectedPlayers['second'] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     <TouchableOpacity 
                         style={[styles.playerContainer, styles.shortstop]}
@@ -264,7 +296,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {selectedPlayers['shortstop'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['shortstop'].name}</Text></View>}
-                        <Image source={getPlayerIcon('shortstop')} style={styles.playerIcon} />
+                        <Image 
+                            source={getPlayerIcon('shortstop')} 
+                            style={[styles.playerIcon, !selectedPlayers['shortstop'] && styles.playerIconSilhouette]} 
+                            tintColor={!selectedPlayers['shortstop'] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     <TouchableOpacity 
                         style={[styles.playerContainer, styles.thirdBaseman]}
@@ -272,7 +308,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {selectedPlayers['third'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['third'].name}</Text></View>}
-                        <Image source={getPlayerIcon('third')} style={styles.playerIcon} />
+                        <Image 
+                            source={getPlayerIcon('third')} 
+                            style={[styles.playerIcon, !selectedPlayers['third'] && styles.playerIconSilhouette]} 
+                            tintColor={!selectedPlayers['third'] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     <TouchableOpacity 
                         style={[styles.playerContainer, styles.leftFielder]}
@@ -280,7 +320,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {selectedPlayers['left'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['left'].name}</Text></View>}
-                        <Image source={getPlayerIcon('left')} style={styles.playerIcon} />
+                        <Image 
+                            source={getPlayerIcon('left')} 
+                            style={[styles.playerIcon, !selectedPlayers['left'] && styles.playerIconSilhouette]} 
+                            tintColor={!selectedPlayers['left'] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     <TouchableOpacity 
                         style={[styles.playerContainer, styles.centerFielder]}
@@ -288,7 +332,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {selectedPlayers['center'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['center'].name}</Text></View>}
-                        <Image source={getPlayerIcon('center')} style={styles.playerIcon} />
+                        <Image 
+                            source={getPlayerIcon('center')} 
+                            style={[styles.playerIcon, !selectedPlayers['center'] && styles.playerIconSilhouette]} 
+                            tintColor={!selectedPlayers['center'] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                     <TouchableOpacity 
                         style={[styles.playerContainer, styles.rightFielder]}
@@ -296,7 +344,11 @@ export default function BaseballField() {
                         activeOpacity={0.7}
                     >
                         {selectedPlayers['right'] && <View style={styles.nameTag}><Text style={styles.nameText}>{selectedPlayers['right'].name}</Text></View>}
-                        <Image source={getPlayerIcon('right')} style={styles.playerIcon} />
+                        <Image 
+                            source={getPlayerIcon('right')} 
+                            style={[styles.playerIcon, !selectedPlayers['right'] && styles.playerIconSilhouette]} 
+                            tintColor={!selectedPlayers['right'] ? '#333333' : undefined}
+                        />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -416,6 +468,10 @@ const styles = StyleSheet.create({
     playersLayer: { width: '100%', height: '100%', position: 'absolute', zIndex: 20 },
     playerContainer: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
     playerIcon: { width: 150, height: 150, resizeMode: 'contain', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8 },
+    playerIconSilhouette: { 
+        opacity: 0.8,
+        tintColor: '#333333',
+    },
     nameTag: { position: 'absolute', top: 90, backgroundColor: '#ffffff', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 2, borderColor: '#5d4037', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, elevation: 5, zIndex: 25 },
     nameText: { fontSize: 12, fontWeight: 'bold', color: '#5d4037', textAlign: 'center' },
     
