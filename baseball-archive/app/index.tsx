@@ -327,10 +327,10 @@ export default function BaseballField() {
                                  activeTab === 'roster' ? '선수 선택' : 
                                  activeTab === 'stats' ? '통계' : ''}
                             </Text>
-                            {activeTab === 'album' && Object.keys(selectedPlayers).length > 0 && (
+                            {activeTab === 'album' && (Object.keys(selectedPlayers).length > 0 || startingPitcher || reliefPitchers.length > 0) && (
                                 <View style={styles.countBadge}>
                                     <Text style={styles.countText}>
-                                        {Object.keys(selectedPlayers).length}
+                                        {Object.keys(selectedPlayers).length + (startingPitcher ? 1 : 0) + reliefPitchers.length}
                                     </Text>
                                 </View>
                             )}
