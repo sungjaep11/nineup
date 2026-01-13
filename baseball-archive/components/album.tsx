@@ -26,6 +26,7 @@ interface PlayerImage {
     playerName: string;
     fileName: string;
     imageUrl: string;
+    imageType?: string;  // '1', '2', '3', 'profile'
     position?: string;
     playerId?: number;
 }
@@ -88,16 +89,6 @@ export default function Album({ selectedPlayers }: AlbumProps) {
             setLoading(false);
         }
     };
-
-<<<<<<< HEAD
-    // 이미지는 이미 선택된 선수만 DB에서 가져왔으므로, image_1, image_2, image_3만 필터링
-    const filteredImages = useMemo(() => {
-        console.log('📸 전체 이미지 개수:', allImages.length);
-        
-        // allImages가 배열이 아니면 빈 배열 반환
-        if (!Array.isArray(allImages)) {
-            return [];
-        }
 
     // 이미지는 이미 선택된 선수만 DB에서 가져왔으므로, image_1, image_2, image_3만 필터링
     const filteredImages = useMemo(() => {
