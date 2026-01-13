@@ -21,6 +21,10 @@ export interface Player {
   home_runs?: number;  // 홈런
   rbis?: number;  // 타점
   stolen_bases?: number;  // 도루
+  fielding_percentage?: number;  // 수비율 (FPCT)
+  at_bats?: number;  // 타수 (AB)
+  total_bases?: number;  // 총 루타 (TB)
+  hits?: number;  // 안타 (H)
   
   // 투수 통계 (선택적)
   era?: number;  // 평균자책점
@@ -30,6 +34,8 @@ export interface Player {
   saves?: number;  // 세이브
   strikeouts?: number;  // 탈삼진
   whip?: number;  // WHIP (이닝당 출루 허용)
+  innings_pitched?: number;  // 이닝 수 (IP)
+  walks?: number;  // 볼넷 (BB)
 }
 
 // 포지션 이름 표시용

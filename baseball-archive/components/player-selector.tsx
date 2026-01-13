@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import React, { useEffect, useState } from 'react';
 import {
@@ -6,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -34,6 +36,7 @@ export default function PlayerSelector({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const teams = ['KIA', 'KT', '삼성', 'LG', '두산', '롯데', 'NC', '한화', '키움', 'SSG'];
   const teamDisplayNames: Record<string, string> = {
@@ -106,6 +109,21 @@ export default function PlayerSelector({
     });
   };
 
+  const filterPlayersBySearch = (players: Player[]) => {
+    if (!searchQuery.trim()) return players;
+    const query = searchQuery.trim().toLowerCase();
+    return players.filter(player => {
+      const playerName = (player.name || '').toLowerCase();
+      return playerName.includes(query);
+    });
+  };
+
+  const filterPlayers = (players: Player[]) => {
+    let filtered = filterPlayersByTeam(players);
+    filtered = filterPlayersBySearch(filtered);
+    return filtered;
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -147,6 +165,29 @@ export default function PlayerSelector({
       <View style={styles.header}>
         <Text style={styles.title}>선수 선택</Text>
         <Text style={styles.subtitle}>각 포지션별로 선수를 선택하세요</Text>
+      </View>
+
+      {/* 검색창 */}
+      <View style={styles.searchContainer}>
+        <BlurView intensity={blurIntensity} tint="light" style={styles.searchInputContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="선수 이름 검색..."
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={(text) => setSearchQuery(text)}
+            autoCorrect={false}
+            autoCapitalize="none"
+            textContentType="none"
+            keyboardType="default"
+            returnKeyType="search"
+            blurOnSubmit={false}
+            multiline={false}
+          />
+          <View style={styles.searchIconContainer}>
+            <Ionicons name="search" size={20} color="#666666" />
+          </View>
+        </BlurView>
       </View>
 
       {/* 팀 필터 */}
@@ -212,7 +253,7 @@ export default function PlayerSelector({
             
             {expandedPosition === 'starting' && (
               <View style={styles.playerListTransparent}>
-                {filterPlayersByTeam(playersData.pitcher)
+                {filterPlayers(playersData.pitcher)
                   .filter(p => !reliefPitchers.some(rp => rp.id === p.id))
                   .map((player, index) => (
                     <TouchableOpacity
@@ -280,7 +321,7 @@ export default function PlayerSelector({
             </TouchableOpacity>
             {expandedPosition === 'relief' && (
               <View style={styles.playerListTransparent}>
-                {filterPlayersByTeam(playersData.pitcher)
+                {filterPlayers(playersData.pitcher)
                   .filter(p => !startingPitcher || startingPitcher.id !== p.id)
                   .map((player, index) => {
                     const isSelected = reliefPitchers.some(rp => rp.id === player.id);
@@ -361,7 +402,7 @@ export default function PlayerSelector({
 
               {expanded && (
                  <View style={styles.playerListTransparent}>
-                  {filterPlayersByTeam(players).map((player, index) => (
+                  {filterPlayers(players).map((player, index) => (
                     <TouchableOpacity
                       key={`${position}-${player.id}-${index}`}
                       style={styles.playerCardContainer}
@@ -450,6 +491,27 @@ const styles = StyleSheet.create({
   selectedPlayerDetail: { fontSize: 14, color: '#FFFFFF', backgroundColor: '#7896AA', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   noSelection: { fontSize: 14, color: '#555555', fontStyle: 'italic' },
 
+  // 검색창
+  searchContainer: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  searchInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#000000',
+  },
+  searchIconContainer: {
+    paddingRight: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   // 필터
   filterContainer: { paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'transparent', borderBottomWidth: 0 },
   filterScrollContent: { paddingRight: 20 },

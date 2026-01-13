@@ -126,8 +126,12 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
 
     // 타자 통계 기반 능력치 계산
     if (player.batting_average !== undefined || player.home_runs !== undefined || player.rbis !== undefined) {
-      // 파워: 홈런 기준 (0-50개를 0-100으로 변환)
-      const power = Math.min(100, ((player.home_runs || 0) / 50) * 100);
+      // 파워: (TB-H)/AB 기준 (장타율의 일종, 안타를 제외한 추가 루타율)
+      // (TB-H)/AB 범위: 0-0.350을 0-100으로 변환 (실제 최대값 약 0.330)
+      const tbMinusH = (player.total_bases || 0) - (player.hits || 0);
+      const power = (player.at_bats && player.at_bats > 0)
+        ? Math.min(100, ((tbMinusH / player.at_bats) / 0.350) * 100)
+        : Math.min(100, ((player.home_runs || 0) / 50) * 100); // 폴백: 홈런 기준
 
       // 정확도: 타율 기준 (0-0.400을 0-100으로 변환)
       const accuracy = Math.min(100, ((player.batting_average || 0) / 0.400) * 100);
@@ -135,11 +139,21 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
       // 득점력: 득점 기준 (0-100점을 0-100으로 변환)
       const scoring = Math.min(100, ((player.stolen_bases || 0) / 100) * 100);
 
-      // 수비: 타율과 홈런 기반
-      const defense = (accuracy * 0.6 + power * 0.4);
+      // 수비: 수비율 기준 (0.850-1.000을 0-100으로 변환, 완화된 범위)
+      // 수비율이 있으면 사용, 없으면 타율과 홈런 기반 계산
+      let defense: number;
+      if (player.fielding_percentage !== undefined && player.fielding_percentage !== null && player.fielding_percentage > 0) {
+        // 수비율을 0-100 스케일로 변환 (0.850-1.000 범위)
+        // 0.850 이하는 0점, 1.000은 100점
+        // 박해민 0.997 → (0.997 - 0.850) / 0.150 * 100 = 98점
+        defense = Math.max(0, Math.min(100, ((player.fielding_percentage - 0.850) / 0.150) * 100));
+      } else {
+        // 수비율 데이터가 없으면 기존 계산 사용
+        defense = (accuracy * 0.6 + power * 0.4);
+      }
 
-      // 체력: 타점과 득점 기반 (0-150을 0-100으로 변환)
-      const stamina = Math.min(100, (((player.rbis || 0) + (player.stolen_bases || 0)) / 150) * 100);
+      // 체력: 타수(AB) 기반 (0-600을 0-100으로 변환)
+      const stamina = Math.min(100, ((player.at_bats || 0) / 600) * 100);
 
       return {
         stat1: Math.round(power),
@@ -153,10 +167,12 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
 
     // 투수 통계 기반 능력치 계산
     if (player.era !== undefined) {
-      // 제구: ERA 기준 (낮을수록 좋음, 0-6.0을 역으로 100-0으로 변환)
-      const control = player.era > 0 
-        ? Math.max(0, Math.min(100, ((6.0 - player.era) / 6.0) * 100))
-        : 50;
+      // 제구: BB*9/IP 기준 (볼넷/9이닝, 낮을수록 좋음)
+      // BB*9/IP 범위: 0-6을 역으로 100-0으로 변환
+      const bbPer9 = (player.innings_pitched && player.innings_pitched > 0 && player.walks !== undefined)
+        ? (player.walks * 9) / player.innings_pitched
+        : 3.0; // 기본값 (평균 수준)
+      const control = Math.max(0, Math.min(100, ((6.0 - bbPer9) / 6.0) * 100));
 
       // 탈삼진 능력: 탈삼진 기준 (0-200개를 0-100으로 변환)
       const strikeoutAbility = Math.min(100, ((player.strikeouts || 0) / 200) * 100);
@@ -175,8 +191,8 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
       // WHIP + ERA 범위: 최소 0.5 (최고), 최대 10 (최악)
       const clutch = inverseNormalize(whipEraSum, 0.5, 10);
 
-      // 체력: 승/패/세이브/홀드 합계 기반 (0-50을 0-100으로 변환)
-      const stamina = Math.min(100, (((player.wins || 0) + (player.saves || 0) + (player.holds || 0)) / 50) * 100);
+      // 체력: 이닝 수(IP) 기반 (0-150 이닝을 0-100으로 변환)
+      const stamina = Math.min(100, ((player.innings_pitched || 0) / 150) * 100);
 
       return {
         stat1: Math.round(control),
