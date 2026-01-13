@@ -1,5 +1,5 @@
 import { BlurView } from 'expo-blur';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
   Image,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Svg, { G, Path, Text as SvgText } from 'react-native-svg';
 import { Player } from '../types/player';
+import { API_URL } from '../config/api';
 
 const { width } = Dimensions.get('window');
 
@@ -75,6 +76,48 @@ interface PlayerAbilities {
 }
 
 export default function Profile({ player, visible, onClose }: ProfileProps) {
+  // 프로필 이미지 URL 상태
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+
+  // 프로필 이미지 가져오기
+  useEffect(() => {
+    if (!player || !visible) {
+      setProfileImageUrl(null);
+      return;
+    }
+
+    const fetchProfileImage = async () => {
+      try {
+        setImageLoading(true);
+        const namesParam = `names=${encodeURIComponent(player.name)}`;
+        const url = `${API_URL}/api/player-images/?${namesParam}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.log('프로필 이미지 API 응답 오류:', response.status);
+          return;
+        }
+        
+        const data = await response.json();
+        // profile 타입의 이미지 찾기
+        const profileImage = data.find((img: any) => img.imageType === 'profile');
+        if (profileImage && profileImage.imageUrl) {
+          setProfileImageUrl(profileImage.imageUrl);
+        } else {
+          setProfileImageUrl(null);
+        }
+      } catch (error) {
+        console.error('프로필 이미지 로드 실패:', error);
+        setProfileImageUrl(null);
+      } finally {
+        setImageLoading(false);
+      }
+    };
+
+    fetchProfileImage();
+  }, [player, visible]);
+
   // 선수 능력치 계산
   const playerAbilities = useMemo((): PlayerAbilities => {
     if (!player) {
@@ -277,13 +320,25 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
 
-            {/* 프로필 사진 placeholder */}
+            {/* 프로필 사진 */}
             <View style={styles.profileImageContainer}>
-              <View style={styles.profileImagePlaceholder}>
-                <Text style={styles.profileImageText}>
-                  {player.name.charAt(0)}
-                </Text>
-              </View>
+              {profileImageUrl ? (
+                <Image
+                  source={{ uri: profileImageUrl }}
+                  style={styles.profileImage}
+                  resizeMode="cover"
+                  onError={() => {
+                    console.error('프로필 이미지 로드 실패:', profileImageUrl);
+                    setProfileImageUrl(null);
+                  }}
+                />
+              ) : (
+                <View style={styles.profileImagePlaceholder}>
+                  <Text style={styles.profileImageText}>
+                    {player.name.charAt(0)}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* 선수 정보 */}
@@ -413,6 +468,14 @@ const styles = StyleSheet.create({
   profileImageContainer: {
     marginTop: 12,
     marginBottom: 12,
+    alignItems: 'center',
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   profileImagePlaceholder: {
     width: 100,

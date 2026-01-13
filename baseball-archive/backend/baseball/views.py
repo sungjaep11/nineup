@@ -254,7 +254,7 @@ def get_player_images(request):
         
         # photo_data 테이블에서 선택된 선수들의 이미지 URL만 가져오기
         conn = pymysql.connect(**DB_CONFIG)
-        cursor = conn.cursor()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)  # DictCursor 사용
         
         try:
             # 선택된 선수들의 이미지 정보만 가져오기
@@ -272,12 +272,16 @@ def get_player_images(request):
             """, player_names)
             
             players = cursor.fetchall()
+            print(f"✅ DB에서 {len(players)}명의 선수 데이터 조회 완료")
+            
             image_files = []
             
             # 각 선수의 이미지들을 개별 항목으로 변환
             for player in players:
                 player_name = player.get('player_name')
                 player_id = player.get('player_id')
+                
+                print(f"📋 처리 중: {player_name} (player_id: {player_id})")
                 
                 # 각 이미지 타입별로 URL이 있으면 추가
                 image_types = [
@@ -297,6 +301,11 @@ def get_player_images(request):
                             'fileName': f"{player_name}_{image_type}.jpg",
                             'imageType': image_type
                         })
+                        print(f"   ✅ {image_type} 이미지 추가: {image_url[:50]}...")
+                    else:
+                        print(f"   ⚠️ {image_type} 이미지 없음")
+            
+            print(f"📸 총 {len(image_files)}개의 이미지 반환")
             
             return Response(image_files, status=status.HTTP_200_OK)
         
