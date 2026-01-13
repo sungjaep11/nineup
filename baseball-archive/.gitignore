@@ -243,3 +243,7 @@ app-example/
 # Data
 player_images/
 data/
+
+# Database and AWS configuration (개인정보 포함)
+backend/config/db_config.py
+backend/config/aws_config.py

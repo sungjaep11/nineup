@@ -3,15 +3,11 @@ from sqlalchemy import create_engine
 import glob
 import os
 import re
+import sys
 
-# ==========================================
-# 1. 내 DB 정보 입력 (여기를 수정하세요!)
-# ==========================================
-DB_USER = 'admin'                       # AWS RDS 아이디 (보통 admin)
-DB_PASSWORD = 'wldus08095**'       # AWS RDS 비밀번호
-DB_HOST = 'baseball-db.c1awk62uemxb.ap-northeast-2.rds.amazonaws.com'         # AWS 엔드포인트 (긴 주소)
-DB_PORT = '3306'
-DB_NAME = 'baseball-db'                    # 데이터베이스 이름
+# 상위 디렉토리의 db_config import를 위해 경로 추가
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.db_config import DB_USER, DB_PASSWORD, DB_HOST, DB_NAME, DB_PORT
 
 # ==========================================
 # 2. 실행 코드 (자동으로 모든 .xlsx, .csv 파일 업로드)

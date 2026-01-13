@@ -1,13 +1,10 @@
 import pymysql
+import sys
+import os
 
-# ==========================================
-# AWS RDS 접속 정보 (upload.py와 동일하게)
-# ==========================================
-DB_USER = 'admin'
-DB_PASSWORD = 'wldus08095**'
-DB_HOST = 'baseball-db.c1awk62uemxb.ap-northeast-2.rds.amazonaws.com'
-DB_PORT = 3306
-DB_NAME = 'baseball-db'
+# 상위 디렉토리의 db_config import를 위해 경로 추가
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.db_config import DB_USER, DB_PASSWORD, DB_HOST, DB_NAME, DB_PORT
 
 print("=" * 60)
 print("🔧 데이터베이스 생성 스크립트")

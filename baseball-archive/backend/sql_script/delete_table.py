@@ -1,13 +1,10 @@
 import pymysql
+import sys
+import os
 
-# ==========================================
-# AWS RDS 접속 정보
-# ==========================================
-DB_USER = 'admin'
-DB_PASSWORD = 'wldus08095**'
-DB_HOST = 'baseball-db.c1awk62uemxb.ap-northeast-2.rds.amazonaws.com'
-DB_PORT = 3306
-DB_NAME = 'baseball-db'
+# 상위 디렉토리의 db_config import를 위해 경로 추가
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.db_config import DB_USER, DB_PASSWORD, DB_HOST, DB_NAME, DB_PORT
 
 # 삭제할 테이블 이름
 TABLE_TO_DELETE = 'batter_list'
