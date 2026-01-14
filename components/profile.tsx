@@ -823,6 +823,37 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
         performanceMessage = '👍 전반적으로 좋은 타격을 보여주고 있어요!';
       } else if (recent5Avg.avg >= 0.250) {
         performanceMessage = '💼 최근 5경기 평균 타율이 2할 5푼이에요. 나쁘지 않아요!';
+      } else {
+        // 기본 메시지: 모든 경우를 커버
+        if (overallAvg.avg >= 0.300) {
+          performanceMessage = '👍 전반적으로 좋은 타격을 보여주고 있어요!';
+        } else if (overallAvg.avg >= 0.250) {
+          performanceMessage = '💼 꾸준한 타격을 보여주고 있어요!';
+        } else {
+          performanceMessage = '📊 최근 경기 데이터를 분석 중이에요!';
+        }
+      }
+    } else if (processedData.length > 0) {
+      // 3경기 미만인 경우 기본 메시지
+      const calcAvg = (data: typeof processedData, startIndex: number = 0) => {
+        if (data.length === 0) return { hits: 0, avg: 0, ab: 0 };
+        return {
+          hits: data.reduce((sum, d) => sum + d.hits, 0) / data.length,
+          avg: data.reduce((sum, d) => sum + d.avg, 0) / data.length,
+          ab: data.reduce((sum, d, idx) => {
+            const gameIndex = startIndex + idx;
+            const ab = parseInt(recentGames[gameIndex]?.AB || '0', 10);
+            return sum + ab;
+          }, 0) / data.length,
+        };
+      };
+      const overallAvg = calcAvg(processedData, 0);
+      if (overallAvg.avg >= 0.300) {
+        performanceMessage = '👍 좋은 타격을 보여주고 있어요!';
+      } else if (overallAvg.avg >= 0.250) {
+        performanceMessage = '💼 꾸준한 타격을 보여주고 있어요!';
+      } else {
+        performanceMessage = '📊 최근 경기 데이터를 분석 중이에요!';
       }
     }
     
@@ -976,7 +1007,7 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
           </Svg>
         </View>
         
-        {performanceMessage !== '' && (
+        {performanceMessage && (
           <Text style={styles.avgIncreaseMessage}>{performanceMessage}</Text>
         )}
       </View>
@@ -1228,6 +1259,32 @@ export default function Profile({ player, visible, onClose }: ProfileProps) {
         performanceMessage = '👍 전반적으로 좋은 피칭을 보여주고 있어요!';
       } else if (recent5Avg.er < 3.0) {
         performanceMessage = '💼 최근 5경기 평균 자책점이 3점대예요. 나쁘지 않아요!';
+      } else {
+        // 기본 메시지: 모든 경우를 커버
+        if (overallAvg.er < 2.0) {
+          performanceMessage = '👍 전반적으로 좋은 피칭을 보여주고 있어요!';
+        } else if (overallAvg.er < 3.0) {
+          performanceMessage = '💼 꾸준한 피칭을 보여주고 있어요!';
+        } else {
+          performanceMessage = '📊 최근 경기 데이터를 분석 중이에요!';
+        }
+      }
+    } else if (processedData.length > 0) {
+      // 3경기 미만인 경우 기본 메시지
+      const calcAvg = (data: typeof processedData) => {
+        if (data.length === 0) return { ip: 0, er: 0 };
+        return {
+          ip: data.reduce((sum, d) => sum + d.ip, 0) / data.length,
+          er: data.reduce((sum, d) => sum + d.er, 0) / data.length,
+        };
+      };
+      const overallAvg = calcAvg(processedData);
+      if (overallAvg.er < 2.0) {
+        performanceMessage = '👍 좋은 피칭을 보여주고 있어요!';
+      } else if (overallAvg.er < 3.0) {
+        performanceMessage = '💼 꾸준한 피칭을 보여주고 있어요!';
+      } else {
+        performanceMessage = '📊 최근 경기 데이터를 분석 중이에요!';
       }
     }
 
@@ -1709,7 +1766,7 @@ const styles = StyleSheet.create({
   },
   avgIncreaseMessage: {
     fontSize: 13,
-    color: '#4CAF50',
+    color: '#3D5566',
     fontWeight: '600',
     textAlign: 'center',
     marginTop: 8,

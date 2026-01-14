@@ -17,7 +17,7 @@ const { width, height } = Dimensions.get('window');
 // 튜토리얼 대화 내용
 const tutorialDialogues = [
     {
-        text: '안녕하세요! 야구 라인업 메이커에 오신 것을 환영합니다!',
+        text: '안녕하세요! 나인업에 오신 것을 환영합니다!',
     },
     {
         text: '이 앱에서는 KBO 리그 선수들을 선택해서 나만의 최적의 라인업을 만들 수 있어요.',
