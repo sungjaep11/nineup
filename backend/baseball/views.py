@@ -579,49 +579,79 @@ def _simulate_single_at_bat(batter, pitcher, league_avg=0.270):
     """
     import random
     
+    # 리그 평균값 (KBO 기준)
+    league_so_rate = 0.18  # 리그 평균 삼진율
+    league_bb_rate = 0.08  # 리그 평균 볼넷율
+    league_hr_rate = 0.03  # 리그 평균 홈런율 (안타 대비)
+    
     # 투수 데이터 전처리
     tbf = float(pitcher.get('TBF', 1))
-    p_bb_rate = float(pitcher.get('BB', 0)) / tbf if tbf > 0 else 0.08
-    p_so_rate = float(pitcher.get('SO', 0)) / tbf if tbf > 0 else 0.18
-    p_avg = float(pitcher.get('AVG', 0.270))
+    p_bb_rate = float(pitcher.get('BB', 0)) / tbf if tbf > 0 else league_bb_rate
+    p_so_rate = float(pitcher.get('SO', 0)) / tbf if tbf > 0 else league_so_rate
+    p_avg = float(pitcher.get('AVG', league_avg))
+    p_hr_rate = 0.0
+    if tbf > 0:
+        p_hits = float(pitcher.get('H', 0))
+        if p_hits > 0:
+            p_hr_rate = float(pitcher.get('HR', 0)) / p_hits
+        else:
+            p_hr_rate = league_hr_rate
     
     # 타자 데이터 전처리
     pa = float(batter.get('PA', 1))
     ab = float(batter.get('AB', 1))
-    b_bb_rate = float(batter.get('BB', 0)) / pa if pa > 0 else 0.08
-    b_so_rate = float(batter.get('SO', 0)) / pa if pa > 0 else 0.18
-    b_avg = float(batter.get('AVG', 0.280))
+    b_bb_rate = float(batter.get('BB', 0)) / pa if pa > 0 else league_bb_rate
+    b_so_rate = float(batter.get('SO', 0)) / pa if pa > 0 else league_so_rate
+    b_avg = float(batter.get('AVG', league_avg))
     
     # 안타 수
     total_hits = float(batter.get('H', 0))
     if total_hits == 0:
         total_hits = ab * b_avg  # 타율로 추정
     
-    # Log5 공식
-    def calc_log5(batter_rate, pitcher_rate):
+    # Log5 공식 (일관성 있게 모든 확률 계산에 사용)
+    def calc_log5(batter_rate, pitcher_rate, league_rate):
+        """
+        Log5 공식: 타자와 투수의 상대적 능력을 반영한 확률 계산
+        """
         if pitcher_rate is None:
             return batter_rate
-        odds = (batter_rate * pitcher_rate) / league_avg
-        prob = odds / (odds + (1 - batter_rate) * (1 - pitcher_rate) / (1 - league_avg))
-        return prob
+        if league_rate <= 0 or league_rate >= 1:
+            # 리그 평균이 비정상적이면 단순 평균 사용
+            return (batter_rate + pitcher_rate) / 2
+        
+        # Log5 공식 적용
+        odds = (batter_rate * pitcher_rate) / league_rate
+        prob = odds / (odds + (1 - batter_rate) * (1 - pitcher_rate) / (1 - league_rate))
+        return max(0.0, min(1.0, prob))  # 0~1 범위로 제한
     
     # 시뮬레이션 실행
     roll = random.random()
     
-    # 삼진 확률 (타자와 투수의 평균)
-    prob_so = (b_so_rate + p_so_rate) / 2
-    prob_so = min(prob_so, 0.5)  # 최대 50%로 제한
+    # 1단계: 삼진/볼넷/인플레이 결정 (Log5 공식 사용)
+    prob_so = calc_log5(b_so_rate, p_so_rate, league_so_rate)
+    prob_bb = calc_log5(b_bb_rate, p_bb_rate, league_bb_rate)
     
-    # 볼넷 확률 (타자와 투수의 평균)
-    prob_bb = (b_bb_rate + p_bb_rate) / 2
-    prob_bb = min(prob_bb, 0.3)  # 최대 30%로 제한
+    # 확률 제한 (비현실적인 값 방지)
+    prob_so = min(prob_so, 0.5)  # 최대 50%
+    prob_bb = min(prob_bb, 0.3)  # 최대 30%
     
-    # 확률 정규화 (합이 1이 되도록)
-    total_prob = prob_so + prob_bb
-    if total_prob > 0.8:  # 합이 너무 크면 조정
-        scale = 0.8 / total_prob
-        prob_so *= scale
-        prob_bb *= scale
+    # 확률 정규화: 삼진 + 볼넷 + 인플레이 = 1
+    # 인플레이 확률 = 1 - prob_so - prob_bb
+    prob_inplay = 1.0 - prob_so - prob_bb
+    
+    # 인플레이 확률이 음수가 되면 정규화
+    if prob_inplay < 0:
+        total = prob_so + prob_bb
+        if total > 0:
+            scale = 0.9 / total  # 인플레이 확률을 최소 10% 보장
+            prob_so *= scale
+            prob_bb *= scale
+            prob_inplay = 0.1
+        else:
+            prob_inplay = 1.0
+            prob_so = 0.0
+            prob_bb = 0.0
     
     # 1단계: 삼진/볼넷/인플레이 결정
     if roll < prob_so:
@@ -629,18 +659,27 @@ def _simulate_single_at_bat(batter, pitcher, league_avg=0.270):
     elif roll < prob_so + prob_bb:
         return ('BB', 1)
     
-    # 2단계: 인플레이 타구 -> 안타 vs 아웃 결정
-    hit_prob = calc_log5(b_avg, p_avg)
+    # 2단계: 인플레이 타구 -> 안타 vs 아웃 결정 (Log5 공식 사용)
+    hit_prob = calc_log5(b_avg, p_avg, league_avg)
     roll_hit = random.random()
     
     if roll_hit > hit_prob:
         return ('OUT', 0)
     
-    # 3단계: 안타 종류 결정
+    # 3단계: 안타 종류 결정 (투수 능력 반영)
     if total_hits > 0:
+        # 타자의 기본 안타 비율
         ratio_hr = float(batter.get('HR', 0)) / total_hits
         ratio_3b = float(batter.get('3B', 0)) / total_hits
         ratio_2b = float(batter.get('2B', 0)) / total_hits
+        
+        # 투수의 피홈런율을 반영하여 홈런 확률 조정
+        # 강투수일수록 홈런 확률 감소
+        if p_hr_rate > 0:
+            # 투수의 피홈런율과 리그 평균 비교
+            hr_adjustment = league_hr_rate / max(p_hr_rate, 0.001)  # 0으로 나누기 방지
+            ratio_hr = ratio_hr / max(hr_adjustment, 0.5)  # 최대 2배까지만 감소
+        
         # 비율 정규화 (합이 1을 넘지 않도록)
         total_ratio = ratio_hr + ratio_3b + ratio_2b
         if total_ratio > 1.0:
@@ -648,6 +687,11 @@ def _simulate_single_at_bat(batter, pitcher, league_avg=0.270):
             ratio_hr *= scale
             ratio_3b *= scale
             ratio_2b *= scale
+        elif total_ratio < 0.01:
+            # 데이터가 없으면 기본값 사용
+            ratio_hr = 0.05
+            ratio_3b = 0.01
+            ratio_2b = 0.15
     else:
         # 기본값 (일반적인 타자 비율)
         ratio_hr = 0.05
