@@ -209,7 +209,7 @@ export default function BaseballField() {
                 {/* Lineup Maker Logo */}
                 <View style={styles.logoContainer}>
                     <Image 
-                        source={require('../assets/images/Logo_transparent.png')} 
+                        source={require('../assets/images/Logo.png')} 
                         style={styles.logoImage}
                         resizeMode="contain"
                     />

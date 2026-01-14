@@ -4,7 +4,7 @@
     "slug": "baseball-archive",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Logo_transparent.png",
+    "icon": "./assets/images/Logo.png",
     "scheme": "baseballarchive",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,11 +14,11 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Logo_transparent.png",
+        "foregroundImage": "./assets/images/Logo.png",
         "backgroundColor": "#E6F4FE"
       },
       "splash": {
-        "image": "./assets/images/Logo_transparent.png",
+        "image": "./assets/images/Logo.png",
         "resizeMode": "cover",
         "backgroundColor": "#FFFFFF"
       },
@@ -35,7 +35,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/Logo_transparent.png",
+          "image": "./assets/images/Logo.png",
           "resizeMode": "cover",
           "backgroundColor": "#FFFFFF"
         }
