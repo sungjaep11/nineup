@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  FlatList
+  FlatList,
+  Image
 } from 'react-native';
 import Svg, { G, Path, Text as SvgText } from 'react-native-svg';
 import { Player, PlayerPosition } from '../types/player';
@@ -64,6 +65,8 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
   const [simulating, setSimulating] = useState(false);
   const [showBatterModal, setShowBatterModal] = useState(false);
   const [showPitcherModal, setShowPitcherModal] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [showDetailedStats, setShowDetailedStats] = useState(false);
 
   // 선택된 선수 중 타자와 투수 분리
   const batters = useMemo(() => {
@@ -155,6 +158,8 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
 
       const result = await simulateAtBat(batterData, pitcherData);
       setSimulationResult(result);
+      setShowDetailedStats(false); // 상세분석은 기본적으로 접힌 상태
+      setShowResultModal(true); // 결과 모달 표시
     } catch (error) {
       console.error('Error simulating at bat:', error);
       alert('시뮬레이션 실행 중 오류가 발생했습니다.');
@@ -757,6 +762,31 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
             </TouchableOpacity>
           </BlurView>
 
+          {/* 타자 vs 투수 시각화 */}
+          {selectedBatter && selectedPitcher && (
+            <BlurView intensity={80} tint="light" style={styles.vsContainer}>
+              <View style={styles.playerVsCard}>
+                <View style={styles.playerInfo}>
+                  <Image 
+                    source={require('../assets/images/player.png')} 
+                    style={styles.playerImage}
+                  />
+                  <Text style={styles.playerName}>{selectedBatter.name}</Text>
+                  <Text style={styles.playerLabel}>타자</Text>
+                </View>
+                <Text style={styles.vsText}>VS</Text>
+                <View style={styles.playerInfo}>
+                  <Image 
+                    source={require('../assets/images/player.png')} 
+                    style={styles.playerImage}
+                  />
+                  <Text style={styles.playerName}>{selectedPitcher.선수명}</Text>
+                  <Text style={styles.playerLabel}>투수</Text>
+                </View>
+              </View>
+            </BlurView>
+          )}
+
           {/* 시뮬레이션 실행 버튼 */}
           <TouchableOpacity
             style={[
@@ -773,72 +803,6 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
             )}
           </TouchableOpacity>
 
-          {/* 시뮬레이션 결과 */}
-          {simulationResult && (
-            <BlurView intensity={80} tint="light" style={styles.resultCard}>
-              <Text style={styles.resultTitle}>시뮬레이션 결과</Text>
-              <View style={styles.resultBadge}>
-                <Text style={styles.resultType}>{simulationResult.result}</Text>
-              </View>
-              <Text style={styles.resultText}>{simulationResult.text}</Text>
-              <Text style={styles.resultBases}>진루: {simulationResult.bases}루</Text>
-              
-              {/* 통계 정보 */}
-              {simulationResult.statistics && (
-                <View style={styles.statisticsContainer}>
-                  <Text style={styles.statisticsTitle}>
-                    몬테카를로 시뮬레이션 ({simulationResult.statistics.total_simulations}회)
-                  </Text>
-                  
-                  {/* 주요 통계 */}
-                  <View style={styles.statisticsRow}>
-                    <View style={styles.statisticsItem}>
-                      <Text style={styles.statisticsLabel}>안타율</Text>
-                      <Text style={styles.statisticsValue}>
-                        {(simulationResult.statistics.hit_rate * 100).toFixed(1)}%
-                      </Text>
-                    </View>
-                    <View style={styles.statisticsItem}>
-                      <Text style={styles.statisticsLabel}>출루율</Text>
-                      <Text style={styles.statisticsValue}>
-                        {(simulationResult.statistics.on_base_rate * 100).toFixed(1)}%
-                      </Text>
-                    </View>
-                    <View style={styles.statisticsItem}>
-                      <Text style={styles.statisticsLabel}>평균 진루</Text>
-                      <Text style={styles.statisticsValue}>
-                        {simulationResult.statistics.average_bases.toFixed(2)}루
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  {/* 결과 분포 */}
-                  <View style={styles.distributionContainer}>
-                    <Text style={styles.distributionTitle}>결과 분포</Text>
-                    {Object.entries(simulationResult.statistics.distribution).map(([key, value]) => (
-                      <View key={key} style={styles.distributionRow}>
-                        <Text style={styles.distributionLabel}>{key}</Text>
-                        <View style={styles.distributionBarContainer}>
-                          <View 
-                            style={[
-                              styles.distributionBar, 
-                              { width: `${value * 100}%` }
-                            ]} 
-                          />
-                        </View>
-                        <Text style={styles.distributionValue}>
-                          {(value * 100).toFixed(1)}%
-                        </Text>
-                        <Text style={styles.distributionCount}>
-                          ({simulationResult.statistics.counts[key as keyof typeof simulationResult.statistics.counts]}회)
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-            </BlurView>
-          )}
         </View>
       )}
 
@@ -937,6 +901,105 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
                   </TouchableOpacity>
                 )}
               />
+            )}
+          </BlurView>
+        </View>
+      </Modal>
+
+      {/* 시뮬레이션 결과 모달 */}
+      <Modal
+        visible={showResultModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowResultModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <BlurView intensity={100} tint="light" style={styles.resultModalContent}>
+            <View style={styles.resultModalHeader}>
+              <Text style={styles.resultModalTitle}>시뮬레이션 결과</Text>
+              <TouchableOpacity onPress={() => setShowResultModal(false)}>
+                <Text style={styles.modalClose}>닫기</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {simulationResult && (
+              <ScrollView style={styles.resultModalBody} showsVerticalScrollIndicator={false}>
+                {/* 대표 결과 */}
+                <View style={styles.resultModalMain}>
+                  <View style={styles.resultBadge}>
+                    <Text style={styles.resultType}>{simulationResult.result}</Text>
+                  </View>
+                  <Text style={styles.resultText}>{simulationResult.text}</Text>
+                  <Text style={styles.resultBases}>진루: {simulationResult.bases}루</Text>
+                </View>
+                
+                {/* 상세분석 토글 버튼 */}
+                {simulationResult.statistics && (
+                  <TouchableOpacity
+                    style={styles.detailToggleButton}
+                    onPress={() => setShowDetailedStats(!showDetailedStats)}
+                  >
+                    <Text style={styles.detailToggleText}>
+                      {showDetailedStats ? '▼' : '▶'} 상세분석
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                
+                {/* 통계 정보 (토글에 따라 표시/숨김) */}
+                {simulationResult.statistics && showDetailedStats && (
+                  <View style={styles.statisticsContainer}>
+                    <Text style={styles.statisticsTitle}>
+                      몬테카를로 시뮬레이션 ({simulationResult.statistics.total_simulations}회)
+                    </Text>
+                    
+                    {/* 주요 통계 */}
+                    <View style={styles.statisticsRow}>
+                      <View style={styles.statisticsItem}>
+                        <Text style={styles.statisticsLabel}>안타율</Text>
+                        <Text style={styles.statisticsValue}>
+                          {(simulationResult.statistics.hit_rate * 100).toFixed(1)}%
+                        </Text>
+                      </View>
+                      <View style={styles.statisticsItem}>
+                        <Text style={styles.statisticsLabel}>출루율</Text>
+                        <Text style={styles.statisticsValue}>
+                          {(simulationResult.statistics.on_base_rate * 100).toFixed(1)}%
+                        </Text>
+                      </View>
+                      <View style={styles.statisticsItem}>
+                        <Text style={styles.statisticsLabel}>평균 진루</Text>
+                        <Text style={styles.statisticsValue}>
+                          {simulationResult.statistics.average_bases.toFixed(2)}루
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    {/* 결과 분포 */}
+                    <View style={styles.distributionContainer}>
+                      <Text style={styles.distributionTitle}>결과 분포</Text>
+                      {Object.entries(simulationResult.statistics.distribution).map(([key, value]) => (
+                        <View key={key} style={styles.distributionRow}>
+                          <Text style={styles.distributionLabel}>{key}</Text>
+                          <View style={styles.distributionBarContainer}>
+                            <View 
+                              style={[
+                                styles.distributionBar, 
+                                { width: `${value * 100}%` }
+                              ]} 
+                            />
+                          </View>
+                          <Text style={styles.distributionValue}>
+                            {(value * 100).toFixed(1)}%
+                          </Text>
+                          <Text style={styles.distributionCount}>
+                            ({simulationResult.statistics.counts[key as keyof typeof simulationResult.statistics.counts]}회)
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
             )}
           </BlurView>
         </View>
@@ -1351,5 +1414,88 @@ const styles = StyleSheet.create({
   modalItemSubtext: {
     fontSize: 14,
     color: '#757575',
+  },
+  // 타자 vs 투수 시각화 스타일
+  vsContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  playerVsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  playerInfo: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  playerImage: {
+    width: 80,
+    height: 80,
+    resizeMode: 'contain',
+    marginBottom: 8,
+  },
+  playerName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3D5566',
+    marginBottom: 4,
+  },
+  playerLabel: {
+    fontSize: 12,
+    color: '#757575',
+  },
+  vsText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#7896AA',
+    marginHorizontal: 20,
+  },
+  // 시뮬레이션 결과 모달 스타일
+  resultModalContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
+    margin: 20,
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  resultModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  resultModalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#3D5566',
+  },
+  resultModalBody: {
+    padding: 20,
+  },
+  resultModalMain: {
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(120, 150, 170, 0.3)',
+  },
+  detailToggleButton: {
+    backgroundColor: 'rgba(120, 150, 170, 0.2)',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  detailToggleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3D5566',
   },
 });
