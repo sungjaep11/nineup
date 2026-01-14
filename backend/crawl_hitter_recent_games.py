@@ -275,80 +275,128 @@ def save_games_to_db(cursor, conn, games_data):
 def crawl_2025_score(driver, player_id, player_name, debug=False):
     """
     선수 상세 페이지에서 "2025 성적" 테이블을 크롤링합니다.
-    (수정됨: 단일 행 파싱 로직 적용)
+    두 개의 별도 테이블에서 데이터를 추출합니다.
     """
     try:
         # 1. 선수 상세 페이지로 이동
         detail_url = HITTER_DETAIL_URL.format(id=player_id)
         driver.get(detail_url)
-        # ... (기존 대기 로직 유지) ...
-        time.sleep(2)
+        time.sleep(1.5)  # 페이지 로딩 대기
         
-        # 2. 2025 성적 테이블 찾기 (기존 로직 활용하되 범위 좁힘)
-        # KBO 페이지 구조상 '정규시즌 성적' 테이블이 가장 위에 있고 큽니다.
-        target_row = None
+        # 2. 두 개의 별도 테이블 찾기
+        # 첫 번째 테이블: 팀명, AVG 포함
+        # 두 번째 테이블: BB, IBB 포함
+        tables = driver.find_elements(By.TAG_NAME, "table")
+        table1 = None  # 첫 번째 테이블 (팀명, AVG)
+        table2 = None  # 두 번째 테이블 (BB, IBB)
         
-        # 테이블의 모든 행을 순회하며 '2025'가 있는 행을 찾습니다.
-        # table.tData 클래스가 주로 데이터 테이블입니다.
-        rows = driver.find_elements(By.CSS_SELECTOR, "table.tData tbody tr")
+        for table in tables:
+            table_text = table.text
+            # 첫 번째 테이블 찾기 (팀명, AVG 포함)
+            if not table1 and "팀명" in table_text and "AVG" in table_text:
+                table1 = table
+                print("  ✅ 첫 번째 테이블 발견 (팀명, AVG 포함)")
+            # 두 번째 테이블 찾기 (BB, IBB 포함)
+            elif not table2 and "BB" in table_text and "IBB" in table_text:
+                table2 = table
+                print("  ✅ 두 번째 테이블 발견 (BB, IBB 포함)")
         
-        for row in rows:
-            text = row.text
-            # '2025'년 데이터인지 확인 (혹은 2025 성적만 있는 페이지라면 첫 줄)
-            # 보통 첫 컬럼이나 두번째 컬럼에 연도가 나옵니다.
-            if '2025' in text:
-                target_row = row
-                break
+        if not table1:
+            print(f"  ⚠️ {player_name}: 첫 번째 성적 테이블(팀명, AVG) 없음")
+            return None
         
-        if not target_row:
-            print(f"  ⚠️ {player_name}: 2025년 기록 행을 찾을 수 없습니다.")
+        if not table2:
+            print(f"  ⚠️ {player_name}: 두 번째 성적 테이블(BB, IBB) 없음")
             return None
 
-        # 3. 데이터 파싱 (단일 행에서 모든 데이터 추출)
-        cols = target_row.find_elements(By.TAG_NAME, "td")
+        # 3. 첫 번째 테이블에서 데이터 행 추출
+        rows1 = table1.find_elements(By.TAG_NAME, "tr")
+        data_row1 = None
         
-        # KBO Basic 페이지의 컬럼 순서 (2024~2025 기준, 변동 가능성 있음)
-        # 0: 연도, 1: 팀명, 2: 타율(AVG), 3: 경기(G), 4: 타석(PA), 5: 타수(AB), 
-        # 6: 득점(R), 7: 안타(H), 8: 2루타(2B), 9: 3루타(3B), 10: 홈런(HR), 
-        # 11: 루타(TB), 12: 타점(RBI), 13: 도루(SB), 14: 도실(CS), 15: 희타(SAC), 
-        # 16: 희비(SF), 17: 볼넷(BB), 18: 고의4구(IBB), 19: 사구(HBP), 20: 삼진(SO), 
-        # 21: 병살(GDP), 22: 장타율(SLG), 23: 출루율(OBP), 24: OPS, ...
+        for i, row in enumerate(rows1):
+            text = row.text.strip()
+            cols = row.find_elements(By.TAG_NAME, "td")
+            
+            # 헤더 행 건너뛰기
+            if "팀명" in text and "AVG" in text:
+                print(f"  ✅ 첫 번째 헤더 행 발견: {text[:50]}...")
+                continue
+            
+            # 데이터 행 찾기 (16개 컬럼: 팀명(0), AVG(1), G(2), PA(3), AB(4), R(5), H(6), 2B(7), 3B(8), HR(9), TB(10), RBI(11), SB(12), CS(13), SAC(14), SF(15))
+            if text and len(cols) == 16:
+                data_row1 = row
+                print(f"  ✅ 첫 번째 데이터 행 발견 (컬럼 수: {len(cols)}): {text[:50]}...")
+                break
         
-        if len(cols) < 20:
-            print(f"  ⚠️ 컬럼 수가 부족합니다. (발견된 컬럼 수: {len(cols)})")
+        # 4. 두 번째 테이블에서 데이터 행 추출
+        rows2 = table2.find_elements(By.TAG_NAME, "tr")
+        data_row2 = None
+        
+        for i, row in enumerate(rows2):
+            text = row.text.strip()
+            cols = row.find_elements(By.TAG_NAME, "td")
+            
+            # 헤더 행 건너뛰기
+            if "BB" in text and "IBB" in text:
+                print(f"  ✅ 두 번째 헤더 행 발견: {text[:50]}...")
+                continue
+            
+            # 데이터 행 찾기 (13개 컬럼: BB, IBB, HBP, SO, GDP, SLG, OBP, E, SB%, MH, OPS, RISP, PH-BA)
+            if text and len(cols) == 13:
+                data_row2 = row
+                print(f"  ✅ 두 번째 데이터 행 발견 (컬럼 수: {len(cols)}): {text[:50]}...")
+                break
+        
+        if not data_row1 or not data_row2:
+            print(f"  ⚠️ {player_name}: 데이터 행 부족 (첫 번째: {data_row1 is not None}, 두 번째: {data_row2 is not None})")
             return None
+
+        # 5. 컬럼 파싱
+        cols1 = data_row1.find_elements(By.TAG_NAME, "td")
+        cols2 = data_row2.find_elements(By.TAG_NAME, "td")
+
+        def get_val(cols, idx):
+            return cols[idx].text.strip() if len(cols) > idx else ''
+
+        # 디버깅: 실제 컬럼 개수 확인
+        print(f"  📊 {player_name}: Row1 컬럼 수={len(cols1)}, Row2 컬럼 수={len(cols2)}")
+
+        # 첫 번째 행: 팀명(0), AVG(1), G(2), PA(3), AB(4), R(5), H(6), 2B(7), 3B(8), HR(9), TB(10), RBI(11), SB(12), CS(13), SAC(14), SF(15) - 16개 컬럼
+        # 두 번째 행: BB(0), IBB(1), HBP(2), SO(3), GDP(4), SLG(5), OBP(6), E(7), SB%(8), MH(9), OPS(10), RISP(11), PH-BA(12) - 13개 컬럼
 
         score_data = {
             'player_id': player_id,
             '선수명': player_name,
-            # 인덱스는 실제 페이지 소스를 보고 미세 조정이 필요할 수 있습니다.
-            # 아래는 일반적인 KBO 기록실 순서입니다.
-            'AVG': cols[2].text.strip(),
-            'G':   cols[3].text.strip(),
-            'PA':  cols[4].text.strip(),
-            'AB':  cols[5].text.strip(),
-            'R':   cols[6].text.strip(),
-            'H':   cols[7].text.strip(),
-            '2B':  cols[8].text.strip(),
-            '3B':  cols[9].text.strip(),
-            'HR':  cols[10].text.strip(),
-            'TB':  cols[11].text.strip(),
-            'RBI': cols[12].text.strip(),
-            'SB':  cols[13].text.strip(),
-            'CS':  cols[14].text.strip(),
-            'SAC': cols[15].text.strip(),
-            'SF':  cols[16].text.strip(),
-            'BB':  cols[17].text.strip(), # 여기가 문제였던 부분 (같은 줄에 있음)
-            'IBB': cols[18].text.strip(),
-            'HBP': cols[19].text.strip(),
-            'SO':  cols[20].text.strip(),
-            'GDP': cols[21].text.strip(),
-            'SLG': cols[22].text.strip(),
-            'OBP': cols[23].text.strip(),
-            'OPS': cols[24].text.strip() if len(cols) > 24 else ''
+            
+            # --- Row 1 Data ---
+            'AVG':  get_val(cols1, 1) if len(cols1) > 1 else '',  # 0: 팀명, 1: AVG
+            'G':    get_val(cols1, 2) if len(cols1) > 2 else '',
+            'PA':   get_val(cols1, 3) if len(cols1) > 3 else '',
+            'AB':   get_val(cols1, 4) if len(cols1) > 4 else '',
+            'R':    get_val(cols1, 5) if len(cols1) > 5 else '',
+            'H':    get_val(cols1, 6) if len(cols1) > 6 else '',
+            '2B':   get_val(cols1, 7) if len(cols1) > 7 else '',
+            '3B':   get_val(cols1, 8) if len(cols1) > 8 else '',
+            'HR':   get_val(cols1, 9) if len(cols1) > 9 else '',
+            'TB':   get_val(cols1, 10) if len(cols1) > 10 else '',
+            'RBI':  get_val(cols1, 11) if len(cols1) > 11 else '',
+            'SB':   get_val(cols1, 12) if len(cols1) > 12 else '',
+            'CS':   get_val(cols1, 13) if len(cols1) > 13 else '',
+            'SAC':  get_val(cols1, 14) if len(cols1) > 14 else '',
+            'SF':   get_val(cols1, 15) if len(cols1) > 15 else '',  # 첫 번째 테이블의 마지막 컬럼
+            
+            # --- Row 2 Data ---
+            'BB':   get_val(cols2, 0) if len(cols2) > 0 else '',
+            'IBB':  get_val(cols2, 1) if len(cols2) > 1 else '',
+            'HBP':  get_val(cols2, 2) if len(cols2) > 2 else '',
+            'SO':   get_val(cols2, 3) if len(cols2) > 3 else '',
+            'GDP':  get_val(cols2, 4) if len(cols2) > 4 else '',
+            'SLG':  get_val(cols2, 5) if len(cols2) > 5 else '',
+            'OBP':  get_val(cols2, 6) if len(cols2) > 6 else '',
+            'OPS':  get_val(cols2, 10) if len(cols2) > 10 else '',  # OPS는 10번 인덱스
         }
         
-        print(f"  ✅ {player_name}: 2025 성적 데이터 수집 완료 (BB: {score_data['BB']}, SO: {score_data['SO']})")
+        print(f"  ✅ {player_name}: 2025 성적 데이터 수집 완료 (AVG: {score_data['AVG']}, BB: {score_data['BB']}, SO: {score_data['SO']})")
         return score_data
 
     except Exception as e:
@@ -360,14 +408,11 @@ def crawl_2025_score(driver, player_id, player_name, debug=False):
 
 def create_2025_score_hitter_table(cursor, conn):
     """
-    2025 성적 타자 테이블 생성 (SAC, SF 포함)
+    2025 성적 타자 테이블 생성
     """
     try:
-        cursor.execute("DROP TABLE IF EXISTS `2025_score_hitter`")
-        conn.commit()
-        
         query = """
-        CREATE TABLE `2025_score_hitter` (
+        CREATE TABLE IF NOT EXISTS `2025_score_hitters` (
             `id` INT AUTO_INCREMENT PRIMARY KEY,
             `player_id` VARCHAR(20) NOT NULL,
             `선수명` VARCHAR(50) NOT NULL,
@@ -386,6 +431,7 @@ def create_2025_score_hitter_table(cursor, conn):
             `SB` VARCHAR(10),
             `CS` VARCHAR(10),
             `BB` VARCHAR(10),
+            `IBB` VARCHAR(10),
             `HBP` VARCHAR(10),
             `SO` VARCHAR(10),
             `GDP` VARCHAR(10),
@@ -395,13 +441,12 @@ def create_2025_score_hitter_table(cursor, conn):
             `OPS` VARCHAR(10),
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX `idx_player_id` (`player_id`),
             UNIQUE KEY `unique_player` (`player_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
         cursor.execute(query)
         conn.commit()
-        print("✅ 2025 성적 테이블 생성 완료 (SAC, SF 포함)")
+        print("✅ DB 테이블(2025_score_hitters) 확인/생성 완료")
         
     except Exception as e:
         print(f"❌ 테이블 생성 오류: {e}")
@@ -417,10 +462,10 @@ def save_2025_score_to_db(cursor, conn, score_data):
     try:
         # INSERT 쿼리 (모든 컬럼 명시)
         insert_query = """
-        INSERT INTO `2025_score_hitter` 
+        INSERT INTO `2025_score_hitters` 
         (`player_id`, `선수명`, `G`, `PA`, `AB`, `R`, `H`, `2B`, `3B`, `HR`, `TB`, `RBI`, 
-         `SAC`, `SF`, `SB`, `CS`, `BB`, `HBP`, `SO`, `GDP`, `AVG`, `OBP`, `SLG`, `OPS`)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+         `SAC`, `SF`, `SB`, `CS`, `BB`, `IBB`, `HBP`, `SO`, `GDP`, `AVG`, `OBP`, `SLG`, `OPS`)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             `선수명` = VALUES(`선수명`),
             `G` = VALUES(`G`),
@@ -438,6 +483,7 @@ def save_2025_score_to_db(cursor, conn, score_data):
             `SB` = VALUES(`SB`),
             `CS` = VALUES(`CS`),
             `BB` = VALUES(`BB`),
+            `IBB` = VALUES(`IBB`),
             `HBP` = VALUES(`HBP`),
             `SO` = VALUES(`SO`),
             `GDP` = VALUES(`GDP`),
@@ -466,6 +512,7 @@ def save_2025_score_to_db(cursor, conn, score_data):
             score_data.get('SB', ''),
             score_data.get('CS', ''),
             score_data.get('BB', ''),
+            score_data.get('IBB', ''),
             score_data.get('HBP', ''),
             score_data.get('SO', ''),
             score_data.get('GDP', ''),

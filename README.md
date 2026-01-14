@@ -32,16 +32,16 @@ KBO 리그 선수 데이터를 활용한 야구 라인업 구성 및 통계 분�
 
 ## 🛠 기술 스택
 
-### 프론트엔드
-- **React Native** (Expo)
-- **TypeScript**
+### 🧑‍💻 기술 스택
+- **Frontend**: React Native (Expo, TypeScript)
+- **Backend**: Python, Django, Django REST Framework
+- **Database**: MySQL (AWS RDS)
+- **Cloud**: AWS (RDS, S3)
+- **데이터 통신**: REST API
+- **상태 관리**: React Hooks
+- **웹 크롤링**: Selenium
 
-### 백엔드
-- **Django REST Framework**
-- **MySQL** (AWS RDS)
-- KBO 공식 사이트 크롤링 데이터
-
-### 데이터베이스
+### 데이터베이스 테이블
 - `kbo_hitters_top150` - 타자 통계
 - `kbo_pitchers_top150` - 투수 통계
 - `kbo_defense_positions` - 포지션 정보

@@ -471,3 +471,333 @@ def get_player_images(request):
             {'error': str(e), 'detail': '이미지 API 처리 중 오류가 발생했습니다.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+def get_2025_hitters(request):
+    """
+    2025 타자 목록 가져오기
+    GET /api/hitters-2025/
+    
+    Returns:
+    [
+      {
+        "player_id": "76232",
+        "선수명": "양의지",
+        "AVG": "0.337",
+        "G": "130",
+        ...
+      },
+      ...
+    ]
+    """
+    try:
+        from config.db_config import DB_CONFIG
+        
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        
+        try:
+            cursor.execute("""
+                SELECT 
+                    `player_id`, `선수명`, `AVG`, `G`, `PA`, `AB`, `R`, `H`, 
+                    `2B`, `3B`, `HR`, `TB`, `RBI`, `SAC`, `SF`, `SB`, `CS`, 
+                    `BB`, `IBB`, `HBP`, `SO`, `GDP`, `SLG`, `OBP`, `OPS`
+                FROM `2025_score_hitters`
+                ORDER BY `선수명`
+            """)
+            
+            hitters = cursor.fetchall()
+            print(f"✅ 2025 타자 {len(hitters)}명 조회 완료")
+            
+            return Response(hitters, status=status.HTTP_200_OK)
+        finally:
+            conn.close()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response(
+            {'error': str(e), 'detail': '타자 목록 조회 중 오류가 발생했습니다.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def get_2025_pitchers(request):
+    """
+    2025 투수 목록 가져오기
+    GET /api/pitchers-2025/
+    
+    Returns:
+    [
+      {
+        "player_id": "76715",
+        "선수명": "류현진",
+        "ERA": "3.23",
+        "G": "26",
+        ...
+      },
+      ...
+    ]
+    """
+    try:
+        from config.db_config import DB_CONFIG
+        
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        
+        try:
+            cursor.execute("""
+                SELECT 
+                    `player_id`, `선수명`, `ERA`, `G`, `CG`, `SHO`, `W`, `L`, 
+                    `SV`, `HLD`, `WPCT`, `TBF`, `NP`, `IP`, `H`, `2B`, `3B`, `HR`,
+                    `SAC`, `SF`, `BB`, `IBB`, `SO`, `WP`, `BK`, `R`, `ER`, 
+                    `BSV`, `WHIP`, `AVG`, `QS`
+                FROM `2025_score_pitchers`
+                ORDER BY `선수명`
+            """)
+            
+            pitchers = cursor.fetchall()
+            print(f"✅ 2025 투수 {len(pitchers)}명 조회 완료")
+            
+            return Response(pitchers, status=status.HTTP_200_OK)
+        finally:
+            conn.close()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response(
+            {'error': str(e), 'detail': '투수 목록 조회 중 오류가 발생했습니다.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+def _simulate_single_at_bat(batter, pitcher, league_avg=0.270):
+    """
+    단일 타석 시뮬레이션 실행 (내부 함수)
+    Returns: ('HR'|'3B'|'2B'|'1B'|'BB'|'SO'|'OUT', bases)
+    """
+    import random
+    
+    # 투수 데이터 전처리
+    tbf = float(pitcher.get('TBF', 1))
+    p_bb_rate = float(pitcher.get('BB', 0)) / tbf if tbf > 0 else 0.08
+    p_so_rate = float(pitcher.get('SO', 0)) / tbf if tbf > 0 else 0.18
+    p_avg = float(pitcher.get('AVG', 0.270))
+    
+    # 타자 데이터 전처리
+    pa = float(batter.get('PA', 1))
+    ab = float(batter.get('AB', 1))
+    b_bb_rate = float(batter.get('BB', 0)) / pa if pa > 0 else 0.08
+    b_so_rate = float(batter.get('SO', 0)) / pa if pa > 0 else 0.18
+    b_avg = float(batter.get('AVG', 0.280))
+    
+    # 안타 수
+    total_hits = float(batter.get('H', 0))
+    if total_hits == 0:
+        total_hits = ab * b_avg  # 타율로 추정
+    
+    # Log5 공식
+    def calc_log5(batter_rate, pitcher_rate):
+        if pitcher_rate is None:
+            return batter_rate
+        odds = (batter_rate * pitcher_rate) / league_avg
+        prob = odds / (odds + (1 - batter_rate) * (1 - pitcher_rate) / (1 - league_avg))
+        return prob
+    
+    # 시뮬레이션 실행
+    roll = random.random()
+    
+    # 삼진 확률 (타자와 투수의 평균)
+    prob_so = (b_so_rate + p_so_rate) / 2
+    prob_so = min(prob_so, 0.5)  # 최대 50%로 제한
+    
+    # 볼넷 확률 (타자와 투수의 평균)
+    prob_bb = (b_bb_rate + p_bb_rate) / 2
+    prob_bb = min(prob_bb, 0.3)  # 최대 30%로 제한
+    
+    # 확률 정규화 (합이 1이 되도록)
+    total_prob = prob_so + prob_bb
+    if total_prob > 0.8:  # 합이 너무 크면 조정
+        scale = 0.8 / total_prob
+        prob_so *= scale
+        prob_bb *= scale
+    
+    # 1단계: 삼진/볼넷/인플레이 결정
+    if roll < prob_so:
+        return ('SO', 0)
+    elif roll < prob_so + prob_bb:
+        return ('BB', 1)
+    
+    # 2단계: 인플레이 타구 -> 안타 vs 아웃 결정
+    hit_prob = calc_log5(b_avg, p_avg)
+    roll_hit = random.random()
+    
+    if roll_hit > hit_prob:
+        return ('OUT', 0)
+    
+    # 3단계: 안타 종류 결정
+    if total_hits > 0:
+        ratio_hr = float(batter.get('HR', 0)) / total_hits
+        ratio_3b = float(batter.get('3B', 0)) / total_hits
+        ratio_2b = float(batter.get('2B', 0)) / total_hits
+        # 비율 정규화 (합이 1을 넘지 않도록)
+        total_ratio = ratio_hr + ratio_3b + ratio_2b
+        if total_ratio > 1.0:
+            scale = 1.0 / total_ratio
+            ratio_hr *= scale
+            ratio_3b *= scale
+            ratio_2b *= scale
+    else:
+        # 기본값 (일반적인 타자 비율)
+        ratio_hr = 0.05
+        ratio_3b = 0.01
+        ratio_2b = 0.15
+    
+    roll_type = random.random()
+    
+    if roll_type < ratio_hr:
+        return ('HR', 4)
+    elif roll_type < ratio_hr + ratio_3b:
+        return ('3B', 3)
+    elif roll_type < ratio_hr + ratio_3b + ratio_2b:
+        return ('2B', 2)
+    else:
+        return ('1B', 1)
+
+
+@api_view(['POST'])
+def simulate_at_bat(request):
+    """
+    타자 vs 투수 몬테카를로 시뮬레이션 실행 (2000회)
+    POST /api/simulate-at-bat/
+    
+    Request Body:
+    {
+      "batter": {
+        "name": "양의지",
+        "AVG": 0.337,
+        "H": 153,
+        "2B": 27,
+        "3B": 1,
+        "HR": 20,
+        "BB": 50,
+        "SO": 63,
+        "PA": 517,
+        "AB": 454
+      },
+      "pitcher": {
+        "name": "류현진",
+        "TBF": 574,
+        "BB": 25,
+        "SO": 122,
+        "AVG": 0.267,
+        "H": 144,
+        "HR": 12
+      }
+    }
+    
+    Returns:
+    {
+      "result": "HR",
+      "text": "담장을 넘어갑니다! 양의지의 시원한 홈런!",
+      "bases": 4,
+      "statistics": {
+        "total_simulations": 2000,
+        "distribution": {
+          "HR": 0.15,
+          "3B": 0.01,
+          "2B": 0.12,
+          "1B": 0.28,
+          "BB": 0.08,
+          "SO": 0.18,
+          "OUT": 0.18
+        },
+        "average_bases": 1.2,
+        "hit_rate": 0.56,
+        "on_base_rate": 0.64
+      }
+    }
+    """
+    try:
+        batter = request.data.get('batter')
+        pitcher = request.data.get('pitcher')
+        
+        if not batter or not pitcher:
+            return Response(
+                {'error': 'batter와 pitcher 데이터가 필요합니다.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 리그 평균 타율
+        league_avg = 0.270
+        
+        # 몬테카를로 시뮬레이션: 2000회 실행
+        SIMULATION_COUNT = 2000
+        results = []
+        result_counts = {
+            'HR': 0, '3B': 0, '2B': 0, '1B': 0,
+            'BB': 0, 'SO': 0, 'OUT': 0
+        }
+        total_bases = 0
+        
+        for _ in range(SIMULATION_COUNT):
+            result_type, bases = _simulate_single_at_bat(batter, pitcher, league_avg)
+            results.append(result_type)
+            result_counts[result_type] += 1
+            total_bases += bases
+        
+        # 통계 계산
+        distribution = {
+            result_type: count / SIMULATION_COUNT
+            for result_type, count in result_counts.items()
+        }
+        
+        average_bases = total_bases / SIMULATION_COUNT
+        
+        # 안타율 (안타 / 전체)
+        hit_rate = (result_counts['HR'] + result_counts['3B'] + 
+                   result_counts['2B'] + result_counts['1B']) / SIMULATION_COUNT
+        
+        # 출루율 (안타 + 볼넷) / 전체
+        on_base_rate = hit_rate + (result_counts['BB'] / SIMULATION_COUNT)
+        
+        # 가장 많이 나온 결과를 대표 결과로 선택
+        most_common_result = max(result_counts.items(), key=lambda x: x[1])[0]
+        
+        # 대표 결과에 맞는 텍스트 생성
+        batter_name = batter.get('name', '타자')
+        pitcher_name = pitcher.get('name', '투수')
+        bases_map = {'HR': 4, '3B': 3, '2B': 2, '1B': 1, 'BB': 1, 'SO': 0, 'OUT': 0}
+        
+        commentary = {
+            'HR': f"담장을 넘어갑니다! {batter_name}의 시원한 홈런!",
+            '3B': f"우중간을 완전히 가릅니다! {batter_name}, 3루까지 전력 질주!",
+            '2B': f"좌익수 키를 넘기는 장타! 2루타입니다.",
+            '1B': f"깔끔한 중전 안타!",
+            'BB': f"볼넷으로 걸어나갑니다. {batter_name}의 선구안이 좋네요.",
+            'SO': f"헛스윙 삼진! {pitcher_name}의 구위가 압도적입니다.",
+            'OUT': f"유격수 땅볼 아웃."
+        }
+        
+        return Response({
+            'result': most_common_result,
+            'text': commentary[most_common_result],
+            'bases': bases_map[most_common_result],
+            'statistics': {
+                'total_simulations': SIMULATION_COUNT,
+                'distribution': distribution,
+                'average_bases': round(average_bases, 3),
+                'hit_rate': round(hit_rate, 3),
+                'on_base_rate': round(on_base_rate, 3),
+                'counts': result_counts
+            }
+        })
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response(
+            {'error': str(e), 'detail': '시뮬레이션 실행 중 오류가 발생했습니다.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

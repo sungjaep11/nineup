@@ -45,6 +45,12 @@ export const API_ENDPOINTS = {
   hitterRecentGames: (playerName: string) => `${API_URL}/api/hitter-recent-games/?player_name=${encodeURIComponent(playerName)}`,
   // 투수 최근 경기 기록 API
   pitcherRecentGames: (playerName: string) => `${API_URL}/api/pitcher-recent-games/?player_name=${encodeURIComponent(playerName)}`,
+  // 2025 타자 목록 API
+  hitters2025: `${API_URL}/api/hitters-2025/`,
+  // 2025 투수 목록 API
+  pitchers2025: `${API_URL}/api/pitchers-2025/`,
+  // 타자 vs 투수 시뮬레이션 API
+  simulateAtBat: `${API_URL}/api/simulate-at-bat/`,
 };
 
 // API 호출 시 공통으로 사용할 헤더

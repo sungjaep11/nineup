@@ -1,14 +1,19 @@
 import { BlurView } from 'expo-blur';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Dimensions,
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  Modal,
+  FlatList
 } from 'react-native';
 import Svg, { G, Path, Text as SvgText } from 'react-native-svg';
 import { Player, PlayerPosition } from '../types/player';
+import { get2025Pitchers, get2025Hitters, simulateAtBat, Pitcher2025, Hitter2025, SimulationResult } from '../services/simulationService';
 
 const { width } = Dimensions.get('window');
 
@@ -48,6 +53,18 @@ interface TeamAbilities {
 }
 
 export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers = [] }: StatsProps) {
+  // 시뮬레이션 관련 state
+  const [selectedBatter, setSelectedBatter] = useState<Player | null>(null);
+  const [selectedPitcher, setSelectedPitcher] = useState<Pitcher2025 | null>(null);
+  const [pitchers2025, setPitchers2025] = useState<Pitcher2025[]>([]);
+  const [hitters2025, setHitters2025] = useState<Hitter2025[]>([]);
+  const [loadingPitchers, setLoadingPitchers] = useState(false);
+  const [loadingHitters, setLoadingHitters] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const [simulating, setSimulating] = useState(false);
+  const [showBatterModal, setShowBatterModal] = useState(false);
+  const [showPitcherModal, setShowPitcherModal] = useState(false);
+
   // 선택된 선수 중 타자와 투수 분리
   const batters = useMemo(() => {
     const positions: PlayerPosition[] = ['catcher', 'first', 'second', 'shortstop', 'third', 'left', 'center', 'right'];
@@ -64,6 +81,87 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
     allPitchers.push(...reliefPitchers);
     return allPitchers;
   }, [startingPitcher, reliefPitchers]);
+
+  // 2025 투수 목록 가져오기
+  useEffect(() => {
+    const fetchPitchers = async () => {
+      try {
+        setLoadingPitchers(true);
+        const data = await get2025Pitchers();
+        setPitchers2025(data);
+      } catch (error) {
+        console.error('Error fetching 2025 pitchers:', error);
+      } finally {
+        setLoadingPitchers(false);
+      }
+    };
+    fetchPitchers();
+  }, []);
+
+  // 2025 타자 목록 가져오기 (선택된 타자와 매칭하기 위해)
+  useEffect(() => {
+    const fetchHitters = async () => {
+      try {
+        setLoadingHitters(true);
+        const data = await get2025Hitters();
+        setHitters2025(data);
+      } catch (error) {
+        console.error('Error fetching 2025 hitters:', error);
+      } finally {
+        setLoadingHitters(false);
+      }
+    };
+    fetchHitters();
+  }, []);
+
+  // 시뮬레이션 실행
+  const handleSimulate = async () => {
+    if (!selectedBatter || !selectedPitcher) {
+      return;
+    }
+
+    // 선택된 타자의 2025 성적 찾기
+    const batter2025 = hitters2025.find(h => h.선수명 === selectedBatter.name);
+    if (!batter2025) {
+      alert('선택한 타자의 2025 성적 데이터를 찾을 수 없습니다.');
+      return;
+    }
+
+    try {
+      setSimulating(true);
+      
+      const batterData = {
+        name: selectedBatter.name,
+        AVG: parseFloat(batter2025.AVG || '0'),
+        H: parseFloat(batter2025.H || '0'),
+        '2B': parseFloat((batter2025 as any)['2B'] || '0'),
+        '3B': parseFloat((batter2025 as any)['3B'] || '0'),
+        HR: parseFloat(batter2025.HR || '0'),
+        BB: parseFloat(batter2025.BB || '0'),
+        SO: parseFloat(batter2025.SO || '0'),
+        PA: parseFloat(batter2025.PA || '0'),
+        AB: parseFloat(batter2025.AB || '0'),
+      };
+
+      const pitcherData = {
+        name: selectedPitcher.선수명,
+        TBF: parseFloat(selectedPitcher.TBF || '0'),
+        BB: parseFloat(selectedPitcher.BB || '0'),
+        SO: parseFloat(selectedPitcher.SO || '0'),
+        AVG: parseFloat(selectedPitcher.AVG || '0'),
+        H: parseFloat(selectedPitcher.H || '0'),
+        HR: parseFloat(selectedPitcher.HR || '0'),
+      };
+
+      const result = await simulateAtBat(batterData, pitcherData);
+      setSimulationResult(result);
+    } catch (error) {
+      console.error('Error simulating at bat:', error);
+      alert('시뮬레이션 실행 중 오류가 발생했습니다.');
+    } finally {
+      setSimulating(false);
+    }
+  };
 
   // 통계 계산
   const teamStats = useMemo((): TeamStats => {
@@ -622,6 +720,227 @@ export default function Stats({ selectedPlayers, startingPitcher, reliefPitchers
           </BlurView>
         </View>
       )}
+
+      {/* 타자 vs 투수 시뮬레이션 */}
+      {batters.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>⚾ 타자 vs 투수 시뮬레이션</Text>
+          
+          {/* 타자 선택 */}
+          <BlurView intensity={80} tint="light" style={styles.simulationCard}>
+            <Text style={styles.simulationLabel}>타자 선택</Text>
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setShowBatterModal(true)}
+            >
+              <Text style={styles.selectButtonText}>
+                {selectedBatter ? selectedBatter.name : '타자 선택'}
+              </Text>
+            </TouchableOpacity>
+          </BlurView>
+
+          {/* 투수 선택 */}
+          <BlurView intensity={80} tint="light" style={styles.simulationCard}>
+            <Text style={styles.simulationLabel}>투수 선택</Text>
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setShowPitcherModal(true)}
+              disabled={loadingPitchers}
+            >
+              {loadingPitchers ? (
+                <ActivityIndicator size="small" color="#7896AA" />
+              ) : (
+                <Text style={styles.selectButtonText}>
+                  {selectedPitcher ? selectedPitcher.선수명 : '투수 선택'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </BlurView>
+
+          {/* 시뮬레이션 실행 버튼 */}
+          <TouchableOpacity
+            style={[
+              styles.simulateButton,
+              (!selectedBatter || !selectedPitcher || simulating) && styles.simulateButtonDisabled
+            ]}
+            onPress={handleSimulate}
+            disabled={!selectedBatter || !selectedPitcher || simulating}
+          >
+            {simulating ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.simulateButtonText}>시뮬레이션 실행</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* 시뮬레이션 결과 */}
+          {simulationResult && (
+            <BlurView intensity={80} tint="light" style={styles.resultCard}>
+              <Text style={styles.resultTitle}>시뮬레이션 결과</Text>
+              <View style={styles.resultBadge}>
+                <Text style={styles.resultType}>{simulationResult.result}</Text>
+              </View>
+              <Text style={styles.resultText}>{simulationResult.text}</Text>
+              <Text style={styles.resultBases}>진루: {simulationResult.bases}루</Text>
+              
+              {/* 통계 정보 */}
+              {simulationResult.statistics && (
+                <View style={styles.statisticsContainer}>
+                  <Text style={styles.statisticsTitle}>
+                    몬테카를로 시뮬레이션 ({simulationResult.statistics.total_simulations}회)
+                  </Text>
+                  
+                  {/* 주요 통계 */}
+                  <View style={styles.statisticsRow}>
+                    <View style={styles.statisticsItem}>
+                      <Text style={styles.statisticsLabel}>안타율</Text>
+                      <Text style={styles.statisticsValue}>
+                        {(simulationResult.statistics.hit_rate * 100).toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View style={styles.statisticsItem}>
+                      <Text style={styles.statisticsLabel}>출루율</Text>
+                      <Text style={styles.statisticsValue}>
+                        {(simulationResult.statistics.on_base_rate * 100).toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View style={styles.statisticsItem}>
+                      <Text style={styles.statisticsLabel}>평균 진루</Text>
+                      <Text style={styles.statisticsValue}>
+                        {simulationResult.statistics.average_bases.toFixed(2)}루
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  {/* 결과 분포 */}
+                  <View style={styles.distributionContainer}>
+                    <Text style={styles.distributionTitle}>결과 분포</Text>
+                    {Object.entries(simulationResult.statistics.distribution).map(([key, value]) => (
+                      <View key={key} style={styles.distributionRow}>
+                        <Text style={styles.distributionLabel}>{key}</Text>
+                        <View style={styles.distributionBarContainer}>
+                          <View 
+                            style={[
+                              styles.distributionBar, 
+                              { width: `${value * 100}%` }
+                            ]} 
+                          />
+                        </View>
+                        <Text style={styles.distributionValue}>
+                          {(value * 100).toFixed(1)}%
+                        </Text>
+                        <Text style={styles.distributionCount}>
+                          ({simulationResult.statistics.counts[key as keyof typeof simulationResult.statistics.counts]}회)
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </BlurView>
+          )}
+        </View>
+      )}
+
+      {/* 타자 선택 모달 */}
+      <Modal
+        visible={showBatterModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowBatterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <BlurView intensity={100} tint="light" style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>타자 선택</Text>
+              <TouchableOpacity onPress={() => setShowBatterModal(false)}>
+                <Text style={styles.modalClose}>닫기</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={batters.filter(batter => {
+                // 2025 성적 데이터가 있는 타자만 표시
+                return hitters2025.some(h => h.선수명 === batter.name);
+              })}
+              keyExtractor={(item) => item.id.toString()}
+              ListEmptyComponent={
+                <View style={styles.modalLoading}>
+                  <Text style={styles.modalLoadingText}>
+                    {loadingHitters ? '타자 데이터를 불러오는 중...' : '2025 성적 데이터가 있는 타자가 없습니다.'}
+                  </Text>
+                </View>
+              }
+              renderItem={({ item }) => {
+                const hitter2025 = hitters2025.find(h => h.선수명 === item.name);
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.modalItem,
+                      selectedBatter?.id === item.id && styles.modalItemSelected
+                    ]}
+                    onPress={() => {
+                      setSelectedBatter(item);
+                      setShowBatterModal(false);
+                    }}
+                  >
+                    <Text style={styles.modalItemText}>{item.name}</Text>
+                    <Text style={styles.modalItemSubtext}>
+                      {item.team} | 타율: {hitter2025?.AVG || 'N/A'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </BlurView>
+        </View>
+      </Modal>
+
+      {/* 투수 선택 모달 */}
+      <Modal
+        visible={showPitcherModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowPitcherModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <BlurView intensity={100} tint="light" style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>투수 선택</Text>
+              <TouchableOpacity onPress={() => setShowPitcherModal(false)}>
+                <Text style={styles.modalClose}>닫기</Text>
+              </TouchableOpacity>
+            </View>
+            {loadingPitchers ? (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator size="large" color="#7896AA" />
+                <Text style={styles.modalLoadingText}>투수 목록을 불러오는 중...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={pitchers2025}
+                keyExtractor={(item) => item.player_id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.modalItem,
+                      selectedPitcher?.player_id === item.player_id && styles.modalItemSelected
+                    ]}
+                    onPress={() => {
+                      setSelectedPitcher(item);
+                      setShowPitcherModal(false);
+                    }}
+                  >
+                    <Text style={styles.modalItemText}>{item.선수명}</Text>
+                    <Text style={styles.modalItemSubtext}>
+                      ERA: {item.ERA || 'N/A'} | SO: {item.SO || 'N/A'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </BlurView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -814,6 +1133,223 @@ const styles = StyleSheet.create({
   },
   lineupPlayerStats: {
     fontSize: 13,
+    color: '#757575',
+  },
+  // 시뮬레이션 스타일
+  simulationCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  simulationLabel: {
+    fontSize: 14,
+    color: '#757575',
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  selectButton: {
+    backgroundColor: 'rgba(120, 150, 170, 0.3)',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  selectButtonText: {
+    fontSize: 16,
+    color: '#3D5566',
+    fontWeight: '600',
+  },
+  simulateButton: {
+    backgroundColor: '#7896AA',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  simulateButtonDisabled: {
+    backgroundColor: '#BDBDBD',
+    opacity: 0.6,
+  },
+  simulateButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  resultCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 16,
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  resultTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#3D5566',
+    marginBottom: 12,
+  },
+  resultBadge: {
+    backgroundColor: '#7896AA',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  resultType: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  resultText: {
+    fontSize: 16,
+    color: '#424242',
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 24,
+  },
+  resultBases: {
+    fontSize: 14,
+    color: '#757575',
+    marginTop: 4,
+  },
+  // 통계 정보 스타일
+  statisticsContainer: {
+    marginTop: 20,
+    width: '100%',
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(120, 150, 170, 0.3)',
+  },
+  statisticsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3D5566',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  statisticsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  statisticsItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statisticsLabel: {
+    fontSize: 12,
+    color: '#757575',
+    marginBottom: 4,
+  },
+  statisticsValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#3D5566',
+  },
+  distributionContainer: {
+    marginTop: 12,
+  },
+  distributionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3D5566',
+    marginBottom: 12,
+  },
+  distributionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  distributionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3D5566',
+    width: 30,
+  },
+  distributionBarContainer: {
+    flex: 1,
+    height: 20,
+    backgroundColor: 'rgba(120, 150, 170, 0.2)',
+    borderRadius: 10,
+    marginHorizontal: 8,
+    overflow: 'hidden',
+  },
+  distributionBar: {
+    height: '100%',
+    backgroundColor: '#7896AA',
+    borderRadius: 10,
+  },
+  distributionValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3D5566',
+    width: 45,
+    textAlign: 'right',
+  },
+  distributionCount: {
+    fontSize: 11,
+    color: '#757575',
+    width: 50,
+    textAlign: 'right',
+  },
+  // 모달 스타일
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#3D5566',
+  },
+  modalClose: {
+    fontSize: 16,
+    color: '#7896AA',
+    fontWeight: '600',
+  },
+  modalLoading: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  modalLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#757575',
+  },
+  modalItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  modalItemSelected: {
+    backgroundColor: 'rgba(120, 150, 170, 0.2)',
+  },
+  modalItemText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3D5566',
+    marginBottom: 4,
+  },
+  modalItemSubtext: {
+    fontSize: 14,
     color: '#757575',
   },
 });
