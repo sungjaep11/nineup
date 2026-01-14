@@ -7,13 +7,15 @@ import { Platform } from 'react-native';
 
 // 환경에 따른 API URL 설정
 const getApiUrl = () => {
+  const ipAddress = '10.249.17.55';
   if (__DEV__) {
     // 개발 환경
     if (Platform.OS === 'android') {
       // Android 에뮬레이터를 사용하는 경우
       // 물리적 Android 기기를 사용하는 경우: 컴퓨터의 로컬 IP 주소로 변경 필요
       // 예: 'http://192.168.0.100:8000' (ifconfig 또는 ipconfig로 확인)
-      return 'http://10.0.2.2:8000';  // Android 에뮬레이터용
+      //return 'http://10.0.2.2:8000';  // Android 에뮬레이터용
+      return `http://${ipAddress}:8000`;
       // return 'http://10.249.17.55:8000';  // 물리적 기기용 (IP 주소 확인 필요)
     } else if (Platform.OS === 'ios') {
       // iOS 시뮬레이터는 localhost 사용 가능
@@ -25,7 +27,8 @@ const getApiUrl = () => {
   }
   
   // 프로덕션 환경 (실제 배포 시)
-  return 'https://your-production-api.com';
+  //return 'https://your-production-api.com';
+  return `http://${ipAddress}:8000`;
 };
 
 export const API_URL = getApiUrl();
